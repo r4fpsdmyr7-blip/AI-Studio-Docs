@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# 不使用 set -e，避免静默退出；不使用 set -u，避免空数组报错
+set -o pipefail
 export AI_STUDIO_ROOT="${AI_STUDIO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 export AI_STUDIO_HOME="${AI_STUDIO_HOME:-$HOME/.ai-studio}"
 export AI_STUDIO_CONFIG_DIR="$AI_STUDIO_HOME/config"

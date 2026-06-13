@@ -64,7 +64,7 @@ For first-time users starting with **no pre-existing environment**, follow these
 
 ```bash
 # 1. Clone the repository to your local machine
-git clone https://github.com/your-username/ai-studio.git
+git clone https://github.com/r4fpsdmyr7-blip/AI-Studio.git
 cd ai-studio
 
 # 2. Grant execution permissions to the main script

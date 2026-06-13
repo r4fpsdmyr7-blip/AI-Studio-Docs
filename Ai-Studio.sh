@@ -1,319 +1,901 @@
-#!/usr/bin/env bash
+#!/bin/bash
+
 # =============================================================================
-# macOS Local AI Stack Manager (Apple Silicon Optimized)
-# Components: Open WebUI, SillyTavern, Continue.dev, Fazm, Browser-Use,
-#             MLX, ComfyUI (SDXL/FLUX), MLX-Video, Ollama
-# Author: AI Assistant
+# AI Studio Manager for macOS
+# =============================================================================
+# 功能：管理 Open WebUI, SillyTavern, Continue.dev, FaaS, Browser Use, 
+#       MLX, ComfyUI (SDXL/FLUX), MLX-Video 的部署、更新、诊断与卸载
+# 作者：AI Assistant
+# 日期：2026-05-31
+# 版本：1.0.0
 # =============================================================================
 
-set -o pipefail
-STACK_DIR="$HOME/.local/ai-stack"
-VENV_DIR="$STACK_DIR/venv"
-LOG_DIR="$STACK_DIR/logs"
-PID_DIR="$STACK_DIR/pids"
-CONFIG_FILE="$STACK_DIR/config.env"
+set -euo pipefail
 
-# 端口定义
-WEBUI_PORT=3000
-ST_PORT=8000
-COMFY_PORT=8188
+# =============================================================================
+# 配置区 - 可根据需要修改
+# =============================================================================
+readonly SCRIPT_VERSION="1.0.0"
+readonly INSTALL_DIR="${HOME}/ai-studio"
+readonly LOG_DIR="${INSTALL_DIR}/logs"
+readonly BACKUP_DIR="${INSTALL_DIR}/backups"
+readonly CONFIG_FILE="${INSTALL_DIR}/config.json"
 
-# 颜色输出
-GREEN="\033[32m"; YELLOW="\033[33m"; RED="\033[31m"; CYAN="\033[36m"; NC="\033[0m"
+# 各组件配置
+declare -A COMPONENTS=(
+    [open-webui]="Open WebUI|https://github.com/open-webui/open-webui.git|8080|http://localhost:8080"
+    [sillytavern]="SillyTavern|https://github.com/SillyTavern/SillyTavern.git|8000|http://localhost:8000"
+    [continue-dev]="Continue.dev|https://github.com/continuedev/continue.git|3000|http://localhost:3000"
+    [faas]="FaaS|https://github.com/openfaas/faas.git|8081|http://localhost:8081"
+    [browser-use]="Browser Use|https://github.com/browser-use/browser-use.git|8082|http://localhost:8082"
+    [mlx]="MLX|https://github.com/ml-explore/mlx.git|N/A|local"
+    [comfyui]="ComfyUI|https://github.com/comfyanonymous/ComfyUI.git|8188|http://localhost:8188"
+    [mlx-video]="MLX-Video|https://github.com/ml-explore/mlx-video.git|N/A|local"
+)
 
-log() { echo -e "${CYAN}[AI-Stack]${NC} $1"; }
-success() { echo -e "${GREEN}✅ $1${NC}"; }
-warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
-error() { echo -e "${RED}❌ $1${NC}"; exit 1; }
+# =============================================================================
+# 工具函数
+# =============================================================================
+log_info() { echo -e "\033[0;34m[INFO]\033[0m $1"; }
+log_success() { echo -e "\033[0;32m[SUCCESS]\033[0m $1"; }
+log_warn() { echo -e "\033[0;33m[WARN]\033[0m $1"; }
+log_error() { echo -e "\033[0;31m[ERROR]\033[0m $1"; }
 
-# 依赖检查
-check_dep() { command -v "$1" >/dev/null 2>&1 || error "Missing dependency: $1. Please install it first."; }
+require_command() {
+    local cmd="$1"
+    if ! command -v "$cmd" &> /dev/null; then
+        log_error "$cmd 未安装，正在安装..."
+        case "$cmd" in
+            brew)
+                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                ;;
+            git)
+                brew install git
+                ;;
+            python3|pip3)
+                brew install python@3.12
+                ;;
+            node|npm)
+                brew install node
+                ;;
+            wget)
+                brew install wget
+                ;;
+            *)
+                log_error "无法自动安装 $cmd，请手动安装后重试"
+                return 1
+                ;;
+        esac
+        log_success "$cmd 安装完成"
+    fi
+}
 
-init_dirs() {
-  mkdir -p "$STACK_DIR" "$LOG_DIR" "$PID_DIR" "$STACK_DIR/repos" "$STACK_DIR/models"
+check_dependencies() {
+    log_info "检查系统依赖..."
+    
+    local deps=("brew" "git" "python3" "pip3" "node" "npm" "wget")
+    local missing=()
+    
+    for dep in "${deps[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            missing+=("$dep")
+        fi
+    done
+    
+    if [ ${#missing[@]} -eq 0 ]; then
+        log_success "所有基础依赖已满足"
+        return 0
+    fi
+    
+    log_info "发现缺失依赖: ${missing[*]}"
+    for dep in "${missing[@]}"; do
+        require_command "$dep"
+    done
 }
 
 # =============================================================================
-# 1. 首次部署
+# 诊断功能
 # =============================================================================
-deploy_first_time() {
-  log "🚀 开始首次部署 (Apple Silicon Optimized)..."
-  init_dirs
+diagnose_simple() {
+    log_info "=== 简单诊断 ==="
+    echo ""
+    
+    echo "系统信息:"
+    echo "  macOS版本: $(sw_vers -productVersion)"
+    echo "  芯片类型: $(uname -m)"
+    echo "  内存: $(sysctl -n hw.memsize | awk '{printf "%.1f GB", $1/1073741824}')"
+    echo ""
+    
+    echo "依赖检查:"
+    local deps=("brew" "git" "python3" "pip3" "node" "npm")
+    for dep in "${deps[@]}"; do
+        if command -v "$dep" &> /dev/null; then
+            log_success "$dep: $($dep --version 2>/dev/null | head -1)"
+        else
+            log_error "$dep: 未安装"
+        fi
+    done
+    echo ""
+    
+    echo "组件安装状态:"
+    for key in "${!COMPONENTS[@]}"; do
+        IFS='|' read -r name _ _ _ <<< "${COMPONENTS[$key]}"
+        if [ -d "${INSTALL_DIR}/${key}" ]; then
+            log_success "${name}: 已安装"
+        else
+            log_warn "${name}: 未安装"
+        fi
+    done
+    echo ""
+    
+    echo "端口占用情况:"
+    local ports=(8080 8000 3000 8081 8082 8188)
+    for port in "${ports[@]}"; do
+        if lsof -i :${port} &> /dev/null; then
+            log_warn "端口 ${port} 被占用: $(lsof -i :${port} -t | head -1)"
+        else
+            log_success "端口 ${port} 空闲"
+        fi
+    done
+    echo ""
+    
+    echo "磁盘空间:"
+    df -h / | awk 'NR==2 {printf "可用空间: %s (%s 使用)\n", $4, $5}'
+    echo ""
+    
+    log_success "简单诊断完成"
+}
 
-  # 检查基础工具
-  command -v brew >/dev/null 2>&1 || { error "Homebrew not found. Install it first."; }
-  
-  log "📦 安装系统依赖..."
-  brew install --quiet git python@3.11 node tmux docker ollama wget curl
-
-  log "🐍 配置 Python 虚拟环境..."
-  python3.11 -m venv "$VENV_DIR"
-  source "$VENV_DIR/bin/activate"
-  pip install --upgrade pip setuptools wheel
-  
-  # 安装 AI 核心 Python 包
-  log "📥 安装 MLX, Browser-Use, Fazm, MLX-Video 依赖..."
-  pip install mlx mlx-lm mlx-whisper
-  pip install browser-use fazm
-  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu # ComfyUI fallback
-  pip install git+https://github.com/THUDM/MLX-Video.git
-
-  log "🌐 克隆核心仓库..."
-  cd "$STACK_DIR/repos"
-  [ ! -d "ComfyUI" ] && git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git
-  [ ! -d "sillytavern" ] && git clone --depth 1 https://github.com/SillyTavern/SillyTavern.git
-  
-  # 安装 SillyTavern 依赖
-  cd "$STACK_DIR/repos/sillytavern" && npm install --quiet
-
-  log "📥 下载 ComfyUI 管理器及基础依赖..."
-  cd "$STACK_DIR/repos/ComfyUI/custom_nodes"
-  [ ! -d "ComfyUI-Manager" ] && git clone https://github.com/ltdrdata/ComfyUI-Manager.git
-
-  log "🤖 配置 Ollama 后端..."
-  brew services start ollama
-  ollama pull qwen2.5:7b 2>/dev/null || true
-  ollama pull llama3.2:3b 2>/dev/null || true
-
-  log "🔌 安装 Continue.dev (VS Code 插件)..."
-  if command -v code >/dev/null 2>&1; then
-    code --install-extension continue.continue 2>/dev/null || warn "VS Code CLI not in PATH. Install Continue manually."
-  else
-    warn "VS Code CLI not found. Install Continue.dev manually from Marketplace."
-  fi
-
-  # 保存配置
-  cat > "$CONFIG_FILE" <<EOF
-OPEN_WEBUI_PORT=$WEBUI_PORT
-SILLYTAVERN_PORT=$ST_PORT
-COMFYUI_PORT=$COMFY_PORT
-OLLAMA_URL=http://localhost:11434
-DEPLOY_DATE=$(date +%F)
-EOF
-  success "首次部署完成！运行 ./ai-stack-manager.sh 进入主菜单。"
+diagnose_deep() {
+    log_info "=== 深度诊断 ==="
+    diagnose_simple
+    
+    echo "详细系统信息:"
+    echo "  CPU核心数: $(sysctl -n hw.ncpu)"
+    echo "  GPU: $(system_profiler SPDisplaysDataType 2>/dev/null | grep -A 2 "Chipset Model" | tail -1 || echo "N/A")"
+    echo ""
+    
+    echo "Python环境:"
+    python3 -c "
+import sys
+print(f'  Python路径: {sys.executable}')
+print(f'  Python版本: {sys.version}')
+try:
+    import mlx
+    print(f'  MLX版本: {mlx.__version__}')
+except ImportError:
+    print('  MLX: 未安装')
+" 2>/dev/null || echo "  Python环境检查失败"
+    echo ""
+    
+    echo "Node.js环境:"
+    if command -v node &> /dev/null; then
+        echo "  Node路径: $(which node)"
+        echo "  npm路径: $(which npm)"
+        echo "  Node版本: $(node --version)"
+    fi
+    echo ""
+    
+    echo "Git仓库状态:"
+    for key in "${!COMPONENTS[@]}"; do
+        if [ -d "${INSTALL_DIR}/${key}/.git" ]; then
+            cd "${INSTALL_DIR}/${key}"
+            local branch=$(git branch --show-current 2>/dev/null)
+            local last_commit=$(git log --oneline -1 2>/dev/null)
+            echo "  ${key}: branch=${branch}, last=${last_commit}"
+            cd - &> /dev/null
+        fi
+    done
+    echo ""
+    
+    echo "网络连通性测试:"
+    for url in "github.com" "huggingface.co" "pypi.org"; do
+        if ping -c 1 -W 2 "${url}" &> /dev/null; then
+            log_success "${url}: 可达"
+        else
+            log_error "${url}: 不可达"
+        fi
+    done
+    echo ""
+    
+    log_success "深度诊断完成"
 }
 
 # =============================================================================
-# 2. 启动服务 & 自动唤起浏览器
+# 部署功能
 # =============================================================================
-start_services() {
-  log "⚡ 启动本地 AI 架构..."
-  init_dirs
-
-  # Ollama
-  if ! pgrep -f "ollama serve" >/dev/null; then
-    log "🧠 启动 Ollama..."
-    nohup ollama serve > "$LOG_DIR/ollama.log" 2>&1 &
-    sleep 2
-  fi
-
-  # Open WebUI (Docker)
-  if ! docker ps | grep -q open-webui; then
-    log "🌐 启动 Open WebUI (Docker)..."
-    docker run -d --name open-webui --network=host -p $WEBUI_PORT:8080 \
-      -v open-webui:/app/backend/data \
-      -e OLLAMA_BASE_URL=http://localhost:11434 \
-      ghcr.io/open-webui/open-webui:main
-  fi
-
-  # SillyTavern
-  tmux has-session -t st-session 2>/dev/null || {
-    log "🎭 启动 SillyTavern..."
-    tmux new-session -d -s st-session "cd $STACK_DIR/repos/sillytavern && node server.js --listen $ST_PORT"
-  }
-
-  # ComfyUI
-  tmux has-session -t comfy-session 2>/dev/null || {
-    log "🎨 启动 ComfyUI..."
-    source "$VENV_DIR/bin/activate"
-    cd "$STACK_DIR/repos/ComfyUI"
-    tmux new-session -d -s comfy-session "python main.py --port $COMFY_PORT --listen"
-  }
-
-  sleep 5
-  log "🌍 自动唤起浏览器..."
-  (sleep 8 && open "http://localhost:$WEBUI_PORT" "http://localhost:$ST_PORT" "http://localhost:$COMFY_PORT") &
-  success "所有服务已启动！正在打开界面..."
-}
-
-# =============================================================================
-# 3. 查看状态
-# =============================================================================
-check_status() {
-  log "📊 服务状态检查："
-  echo -e "-----------------------------"
-  
-  # Ollama
-  if pgrep -f "ollama serve" >/dev/null; then success "Ollama: 运行中 (PID: $(pgrep -f 'ollama serve'))"; 
-  else error "Ollama: 已停止"; fi
-
-  # Docker
-  if docker ps | grep -q open-webui; then success "Open WebUI: 运行中 (Port $WEBUI_PORT)";
-  else error "Open WebUI: 已停止"; fi
-
-  # SillyTavern
-  if tmux has-session -t st-session 2>/dev/null; then success "SillyTavern: 运行中 (Port $ST_PORT)";
-  else error "SillyTavern: 已停止"; fi
-
-  # ComfyUI
-  if tmux has-session -t comfy-session 2>/dev/null; then success "ComfyUI: 运行中 (Port $COMFY_PORT)";
-  else error "ComfyUI: 已停止"; fi
-
-  echo -e "-----------------------------"
-  echo "🌐 访问地址:"
-  echo "   Open WebUI : http://localhost:$WEBUI_PORT"
-  echo "   SillyTavern: http://localhost:$ST_PORT"
-  echo "   ComfyUI    : http://localhost:$COMFY_PORT"
-  echo "   Continue   : VS Code 侧边栏 → Continue"
-  echo "   Ollama API : http://localhost:11434"
-}
-
-# =============================================================================
-# 4. 更新组件
-# =============================================================================
-update_components() {
-  log "🔄 开始更新组件..."
-  init_dirs
-  
-  echo "1) 更新前端 (Open WebUI / SillyTavern)"
-  echo "2) 更新 Agent/架构 (MLX / Fazm / Browser-Use)"
-  echo "3) 更新 ComfyUI & 插件"
-  echo "4) 更新模型 (Ollama Pull)"
-  echo "0) 返回主菜单"
-  read -p "请选择 > " choice
-
-  case $choice in
-    1) docker pull ghcr.io/open-webui/open-webui:main
-       cd "$STACK_DIR/repos/sillytavern" && git pull && npm install
-       success "前端更新完成" ;;
-    2) source "$VENV_DIR/bin/activate"
-       pip install --upgrade mlx mlx-lm browser-use fazm
-       success "Agent/架构更新完成" ;;
-    3) cd "$STACK_DIR/repos/ComfyUI" && git pull
-       cd custom_nodes/ComfyUI-Manager && git pull
-       success "ComfyUI 更新完成" ;;
-    4) echo "输入模型名 (如 qwen2.5:7b, flux.1-dev):"
-       read model
-       ollama pull "$model" 2>/dev/null || warn "模型拉取失败，请检查网络或模型名" ;;
-    *) return ;;
-  esac
-  update_components
-}
-
-# =============================================================================
-# 5. 自我诊断
-# =============================================================================
-self_diagnose() {
-  log "🔍 系统诊断中..."
-  echo -e "-----------------------------"
-  
-  # 硬件
-  echo "🖥️ 芯片: $(sysctl -n machdep.cpu.brand_string | head -c 30)..."
-  echo "💾 内存: $(vm_stat | awk '/Pages active/ {print $3 * 4096 / 1073741824 "GB"}')"
-  echo "💿 磁盘剩余: $(df -h / | awk 'NR==2 {print $4}')"
-
-  # 端口占用
-  echo -e "-----------------------------"
-  for port in 11434 $WEBUI_PORT $ST_PORT $COMFY_PORT; do
-    if lsof -i :$port >/dev/null 2>&1; then success "端口 $port 已监听"; else warn "端口 $port 未监听"; fi
-  done
-
-  # API 测试
-  echo -e "-----------------------------"
-  if curl -s -o /dev/null -w "%{http_code}" http://localhost:11434/api/tags | grep -q 200; then
-    success "Ollama API 响应正常"
-  else
-    error "Ollama API 无响应"
-  fi
-
-  # MPS 支持
-  echo -e "-----------------------------"
-  python3 -c "import torch; print('✅ MPS Available' if torch.backends.mps.is_available() else '⚠️ MPS Not Available')" 2>/dev/null || echo "⚠️ PyTorch 未加载或环境未激活"
-}
-
-# =============================================================================
-# 6. 停止服务
-# =============================================================================
-stop_services() {
-  log "🛑 正在安全停止所有服务..."
-  
-  # Docker
-  docker stop open-webui 2>/dev/null || true
-  docker rm open-webui 2>/dev/null || true
-  
-  # tmux
-  tmux kill-session -t st-session 2>/dev/null || true
-  tmux kill-session -t comfy-session 2>/dev/null || true
-  
-  # Ollama
-  pkill -f "ollama serve" 2>/dev/null || true
-  brew services stop ollama 2>/dev/null || true
-  
-  success "所有服务已停止。"
-}
-
-# =============================================================================
-# 7. 彻底卸载
-# =============================================================================
-uninstall_all() {
-  read -p "⚠️  警告：这将删除所有本地 AI 数据、模型及配置。确认继续？(y/N) " confirm
-  [[ "$confirm" != "y" && "$confirm" != "Y" ]] && { log "已取消卸载。"; return; }
-
-  log "🗑️ 开始彻底清理..."
-  stop_services
-  
-  # 删除目录
-  rm -rf "$STACK_DIR"
-  
-  # 清理 Docker
-  docker volume rm open-webui 2>/dev/null || true
-  docker image rm ghcr.io/open-webui/open-webui:main 2>/dev/null || true
-  
-  # 清理 Ollama 模型 (谨慎)
-  rm -rf ~/.ollama/models
-  
-  success "卸载完成。建议手动运行: brew uninstall ollama docker"
-}
-
-# =============================================================================
-# 主菜单
-# =============================================================================
-main_menu() {
-  while true; do
-    clear
-    echo -e "${CYAN}╔══════════════════════════════════════════════════════╗"
-    echo "║           macOS Local AI Stack Manager v2.0              ║"
-    echo "╚══════════════════════════════════════════════════════╝${NC}"
-    echo "1) 🚀 首次部署 / 初始化"
-    echo "2) ⚡ 启动服务 (自动开浏览器)"
-    echo "3) 📊 查看状态"
-    echo "4) 🔄 更新组件 (前端/Agent/模型)"
-    echo "5) 🔍 自我诊断"
-    echo "6) 🛑 停止服务"
-    echo "7) 🗑️  彻底卸载"
-    echo "0) 🚪 退出"
-    echo "----------------------------------------"
-    read -p "请选择操作 > " choice
-
-    case $choice in
-      1) deploy_first_time ;;
-      2) start_services ;;
-      3) check_status ;;
-      4) update_components ;;
-      5) self_diagnose ;;
-      6) stop_services ;;
-      7) uninstall_all ;;
-      0) log "👋 再见！"; exit 0 ;;
-      *) warn "无效输入，请重试。" ;;
+deploy_component() {
+    local key="$1"
+    IFS='|' read -r name repo_url port default_url <<< "${COMPONENTS[$key]}"
+    
+    log_info "开始部署 ${name}..."
+    
+    mkdir -p "${INSTALL_DIR}" "${LOG_DIR}" "${BACKUP_DIR}"
+    
+    case "$key" in
+        open-webui)
+            deploy_open_webui "$repo_url"
+            ;;
+        sillytavern)
+            deploy_sillytavern "$repo_url"
+            ;;
+        continue-dev)
+            deploy_continue "$repo_url"
+            ;;
+        faas)
+            deploy_faas "$repo_url"
+            ;;
+        browser-use)
+            deploy_browser_use "$repo_url"
+            ;;
+        mlx)
+            deploy_mlx "$repo_url"
+            ;;
+        comfyui)
+            deploy_comfyui "$repo_url"
+            ;;
+        mlx-video)
+            deploy_mlx_video "$repo_url"
+            ;;
+        *)
+            log_error "未知组件: ${key}"
+            return 1
+            ;;
     esac
     
-    read -n1 -p "按任意键继续..." ; echo
-  done
+    log_success "${name} 部署完成"
 }
 
-# 启动入口
-if [[ "$1" == "--auto-start" ]]; then
-  start_services
+deploy_open_webui() {
+    local repo_url="$1"
+    local dir="${INSTALL_DIR}/open-webui"
+    
+    if [ ! -d "${dir}" ]; then
+        log_info "克隆 Open WebUI 仓库..."
+        git clone "${repo_url}" "${dir}"
+    fi
+    
+    cd "${dir}"
+    
+    # 创建虚拟环境
+    if [ ! -d "venv" ]; then
+        python3 -m venv venv
+    fi
+    source venv/bin/activate
+    
+    pip install -e ".[docker]"
+    
+    # 创建启动脚本
+    cat > start.sh << 'EOF'
+#!/bin/bash
+source venv/bin/activate
+OLLAMA_BASE_URL=http://localhost:11434 \
+WEBUI_SECRET_KEY=your-secret-key \
+python -m open_webui --host 0.0.0.0 --port 8080
+EOF
+    chmod +x start.sh
+}
+
+deploy_sillytavern() {
+    local repo_url="$1"
+    local dir="${INSTALL_DIR}/sillytavern"
+    
+    if [ ! -d "${dir}" ]; then
+        log_info "克隆 SillyTavern 仓库..."
+        git clone "${repo_url}" "${dir}"
+    fi
+    
+    cd "${dir}"
+    
+    # 安装依赖
+    npm install
+    
+    # 创建启动脚本
+    cat > start.sh << 'EOF'
+#!/bin/bash
+node server.js --listen --port 8000
+EOF
+    chmod +x start.sh
+}
+
+deploy_continue() {
+    local repo_url="$1"
+    local dir="${INSTALL_DIR}/continue-dev"
+    
+    if [ ! -d "${dir}" ]; then
+        log_info "克隆 Continue.dev 仓库..."
+        git clone "${repo_url}" "${dir}"
+    fi
+    
+    cd "${dir}"
+    
+    npm install
+    npm run build
+    
+    # 创建启动脚本
+    cat > start.sh << 'EOF'
+#!/bin/bash
+npm run dev -- --port 3000
+EOF
+    chmod +x start.sh
+}
+
+deploy_faas() {
+    local repo_url="$1"
+    local dir="${INSTALL_DIR}/faas"
+    
+    if [ ! -d "${dir}" ]; then
+        log_info "克隆 FaaS 仓库..."
+        git clone "${repo_url}" "${dir}"
+    fi
+    
+    cd "${dir}"
+    
+    # 安装 arkade (FaaS CLI)
+    if ! command -v arkade &> /dev/null; then
+        curl -sLS https://get.arkade.dev | sudo sh
+    fi
+    
+    arkade get faas-cli
+    sudo mv faas-cli /usr/local/bin/
+    
+    # 创建启动脚本
+    cat > start.sh << 'EOF'
+#!/bin/bash
+faas-cli up --port 8081
+EOF
+    chmod +x start.sh
+}
+
+deploy_browser_use() {
+    local repo_url="$1"
+    local dir="${INSTALL_DIR}/browser-use"
+    
+    if [ ! -d "${dir}" ]; then
+        log_info "克隆 Browser Use 仓库..."
+        git clone "${repo_url}" "${dir}"
+    fi
+    
+    cd "${dir}"
+    
+    if [ ! -d "venv" ]; then
+        python3 -m venv venv
+    fi
+    source venv/bin/activate
+    
+    pip install -e .
+    pip install playwright
+    playwright install
+    
+    # 创建启动脚本
+    cat > start.sh << 'EOF'
+#!/bin/bash
+source venv/bin/activate
+python -m browser_use.server --host 0.0.0.0 --port 8082
+EOF
+    chmod +x start.sh
+}
+
+deploy_mlx() {
+    local repo_url="$1"
+    local dir="${INSTALL_DIR}/mlx"
+    
+    if [ ! -d "${dir}" ]; then
+        log_info "克隆 MLX 仓库..."
+        git clone "${repo_url}" "${dir}"
+    fi
+    
+    cd "${dir}"
+    
+    if [ ! -d "venv" ]; then
+        python3 -m venv venv
+    fi
+    source venv/bin/activate
+    
+    pip install mlx mlx-examples
+    
+    log_info "MLX 部署完成 (本地库，无服务端口)"
+}
+
+deploy_comfyui() {
+    local repo_url="$1"
+    local dir="${INSTALL_DIR}/comfyui"
+    
+    if [ ! -d "${dir}" ]; then
+        log_info "克隆 ComfyUI 仓库..."
+        git clone "${repo_url}" "${dir}"
+    fi
+    
+    cd "${dir}"
+    
+    if [ ! -d "venv" ]; then
+        python3 -m venv venv
+    fi
+    source venv/bin/activate
+    
+    pip install torch torchvision
+    pip install -r requirements.txt
+    
+    # 创建启动脚本
+    cat > start.sh << 'EOF'
+#!/bin/bash
+source venv/bin/activate
+python main.py --listen --port 8188 --front-end-version Comfy-Org/ComfyUI_frontend@latest
+EOF
+    chmod +x start.sh
+}
+
+deploy_mlx_video() {
+    local repo_url="$1"
+    local dir="${INSTALL_DIR}/mlx-video"
+    
+    if [ ! -d "${dir}" ]; then
+        log_info "克隆 MLX-Video 仓库..."
+        git clone "${repo_url}" "${dir}"
+    fi
+    
+    cd "${dir}"
+    
+    if [ ! -d "venv" ]; then
+        python3 -m venv venv
+    fi
+    source venv/bin/activate
+    
+    pip install mlx video-processing
+    
+    log_info "MLX-Video 部署完成 (本地库，无服务端口)"
+}
+
+# =============================================================================
+# 服务管理
+# =============================================================================
+start_service() {
+    local key="$1"
+    IFS='|' read -r name _ port default_url <<< "${COMPONENTS[$key]}"
+    
+    log_info "启动 ${name}..."
+    
+    if [ ! -f "${INSTALL_DIR}/${key}/start.sh" ]; then
+        log_error "${name} 未部署或启动脚本不存在"
+        return 1
+    fi
+    
+    # 后台运行
+    cd "${INSTALL_DIR}/${key}"
+    nohup ./start.sh > "${LOG_DIR}/${key}.log" 2>&1 &
+    echo $! > "${LOG_DIR}/${key}.pid"
+    
+    # 等待服务启动
+    sleep 3
+    
+    # 检查是否成功启动
+    if [ "$port" != "N/A" ]; then
+        if lsof -i :${port} &> /dev/null; then
+            log_success "${name} 已在端口 ${port} 启动"
+            # 自动打开浏览器
+            open "${default_url}"
+        else
+            log_error "${name} 启动失败，请查看日志: ${LOG_DIR}/${key}.log"
+        fi
+    else
+        log_success "${name} 已启动 (本地库)"
+    fi
+}
+
+stop_service() {
+    local key="$1"
+    IFS='|' read -r name _ _ _ <<< "${COMPONENTS[$key]}"
+    
+    log_info "停止 ${name}..."
+    
+    if [ -f "${LOG_DIR}/${key}.pid" ]; then
+        local pid=$(cat "${LOG_DIR}/${key}.pid")
+        if kill -0 "$pid" 2>/dev/null; then
+            kill "$pid"
+            log_success "${name} 已停止 (PID: ${pid})"
+        else
+            log_warn "${name} 进程不存在"
+        fi
+        rm -f "${LOG_DIR}/${key}.pid"
+    else
+        log_warn "${name} PID 文件不存在"
+    fi
+}
+
+start_all_services() {
+    log_info "启动所有已部署的服务..."
+    for key in "${!COMPONENTS[@]}"; do
+        if [ -f "${INSTALL_DIR}/${key}/start.sh" ]; then
+            start_service "$key"
+        fi
+    done
+}
+
+stop_all_services() {
+    log_info "停止所有运行中的服务..."
+    for key in "${!COMPONENTS[@]}"; do
+        if [ -f "${LOG_DIR}/${key}.pid" ]; then
+            stop_service "$key"
+        fi
+    done
+}
+
+# =============================================================================
+# 更新功能
+# =============================================================================
+update_component() {
+    local key="$1"
+    IFS='|' read -r name repo_url _ _ <<< "${COMPONENTS[$key]}"
+    
+    log_info "更新 ${name}..."
+    
+    cd "${INSTALL_DIR}/${key}"
+    
+    # 备份当前版本
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    tar -czf "${BACKUP_DIR}/${key}_${timestamp}.tar.gz" . 2>/dev/null || true
+    
+    # 拉取最新代码
+    git pull origin main
+    
+    # 重新安装依赖
+    case "$key" in
+        open-webui|browser-use|comfyui|mlx|mlx-video)
+            source venv/bin/activate
+            pip install -e . --upgrade
+            ;;
+        sillytavern|continue-dev)
+            npm install
+            ;;
+        faas)
+            # FaaS 更新 CLI
+            arkade get faas-cli
+            ;;
+    esac
+    
+    log_success "${name} 更新完成"
+}
+
+rollback_component() {
+    local key="$1"
+    IFS='|' read -r name _ _ _ <<< "${COMPONENTS[$key]}"
+    
+    log_info "=== ${name} 版本回退 ==="
+    
+    # 列出可用备份
+    local backups=($(ls -t "${BACKUP_DIR}/${key}_"*.tar.gz 2>/dev/null))
+    
+    if [ ${#backups[@]} -eq 0 ]; then
+        log_error "没有可用的备份版本"
+        return 1
+    fi
+    
+    echo "可用备份:"
+    for i in "${!backups[@]}"; do
+        local filename=$(basename "${backups[$i]}")
+        echo "  $((i+1)). ${filename}"
+    done
+    
+    read -p "选择要回退的版本 (1-${#backups[@]}): " choice
+    
+    if [ "$choice" -ge 1 ] && [ "$choice" -le "${#backups[@]}" ]; then
+        local selected="${backups[$((choice-1))]}"
+        
+        # 停止服务
+        stop_service "$key"
+        
+        # 恢复备份
+        cd "${INSTALL_DIR}/${key}"
+        tar -xzf "${selected}"
+        
+        log_success "${name} 已回退到备份版本"
+    else
+        log_error "无效选择"
+    fi
+}
+
+update_frontend() {
+    log_info "更新所有前端组件..."
+    
+    local frontend_components=("open-webui" "sillytavern" "continue-dev" "comfyui")
+    for key in "${frontend_components[@]}"; do
+        if [ -d "${INSTALL_DIR}/${key}" ]; then
+            update_component "$key"
+        fi
+    done
+}
+
+update_agents() {
+    log_info "更新所有 Agent 组件..."
+    
+    local agent_components=("browser-use" "faas" "mlx")
+    for key in "${agent_components[@]}"; do
+        if [ -d "${INSTALL_DIR}/${key}" ]; then
+            update_component "$key"
+        fi
+    done
+}
+
+update_models() {
+    log_info "更新模型相关组件..."
+    
+    local model_components=("mlx" "mlx-video" "comfyui")
+    for key in "${model_components[@]}"; do
+        if [ -d "${INSTALL_DIR}/${key}" ]; then
+            update_component "$key"
+        fi
+    done
+}
+
+# =============================================================================
+# 状态查看
+# =============================================================================
+show_status() {
+    log_info "=== 组件状态 ==="
+    echo ""
+    
+    printf "%-20s %-10s %-10s %-20s\n" "组件" "状态" "端口" "进程"
+    printf "%-20s %-10s %-10s %-20s\n" "--------------------" "----------" "----------" "--------------------"
+    
+    for key in "${!COMPONENTS[@]}"; do
+        IFS='|' read -r name _ port _ <<< "${COMPONENTS[$key]}"
+        
+        local status="未安装"
+        local pid_info="-"
+        
+        if [ -d "${INSTALL_DIR}/${key}" ]; then
+            status="已安装"
+        fi
+        
+        if [ -f "${LOG_DIR}/${key}.pid" ]; then
+            local pid=$(cat "${LOG_DIR}/${key}.pid")
+            if kill -0 "$pid" 2>/dev/null; then
+                status="运行中"
+                pid_info="PID: ${pid}"
+            else
+                status="已停止"
+            fi
+        fi
+        
+        printf "%-20s %-10s %-10s %-20s\n" "$name" "$status" "$port" "$pid_info"
+    done
+    echo ""
+    
+    echo "内存使用:"
+    ps aux | grep -E "(node|python)" | grep -v grep | awk '{printf "  %-30s %s MB\n", $11, $6/1024}'
+    echo ""
+}
+
+# =============================================================================
+# 卸载功能
+# =============================================================================
+uninstall_component() {
+    local key="$1"
+    IFS='|' read -r name _ _ _ <<< "${COMPONENTS[$key]}"
+    
+    log_info "卸载 ${name}..."
+    
+    # 停止服务
+    stop_service "$key"
+    
+    # 删除目录
+    rm -rf "${INSTALL_DIR}/${key}"
+    rm -f "${LOG_DIR}/${key}."*
+    
+    log_success "${name} 已卸载"
+}
+
+uninstall_all() {
+    log_warn "=== 警告：这将卸载所有组件并删除所有数据 ==="
+    read -p "确定要继续吗？(yes/no): " confirm
+    
+    if [ "$confirm" = "yes" ]; then
+        stop_all_services
+        
+        for key in "${!COMPONENTS[@]}"; do
+            uninstall_component "$key"
+        done
+        
+        rm -rf "${INSTALL_DIR}"
+        log_success "所有组件已卸载"
+    else
+        log_info "取消卸载"
+    fi
+}
+
+# =============================================================================
+# 菜单系统
+# =============================================================================
+show_menu() {
+    clear
+    echo "=================================================="
+    echo "         AI Studio Manager v${SCRIPT_VERSION}"
+    echo "=================================================="
+    echo ""
+    echo "📦 部署管理:"
+    echo "  1. 首次部署 (全部)"
+    echo "  2. 选择性部署"
+    echo ""
+    echo "🚀 服务管理:"
+    echo "  3. 启动所有服务"
+    echo "  4. 停止所有服务"
+    echo "  5. 启动单个服务"
+    echo "  6. 停止单个服务"
+    echo ""
+    echo "📊 状态与诊断:"
+    echo "  7. 查看状态"
+    echo "  8. 简单诊断"
+    echo "  9. 深度诊断"
+    echo ""
+    echo "🔄 更新管理:"
+    echo "  10. 更新全部"
+    echo "  11. 更新前端"
+    echo "  12. 更新 Agent"
+    echo "  13. 更新架构及模型"
+    echo "  14. 版本回退"
+    echo ""
+    echo "🗑️  清理:"
+    echo "  15. 卸载单个组件"
+    echo "  16. 完全卸载"
+    echo ""
+    echo "  0. 退出"
+    echo "=================================================="
+    echo ""
+}
+
+select_component() {
+    echo "可用组件:"
+    local keys=("${!COMPONENTS[@]}")
+    for i in "${!keys[@]}"; do
+        IFS='|' read -r name _ _ _ <<< "${COMPONENTS[${keys[$i]}]}"
+        echo "  $((i+1)). ${name}"
+    done
+    echo ""
+    read -p "选择组件编号: " choice
+    
+    if [ "$choice" -ge 1 ] && [ "$choice" -le "${#keys[@]}" ]; then
+        echo "${keys[$((choice-1))]}"
+    else
+        echo ""
+    fi
+}
+
+# =============================================================================
+# 主程序
+# =============================================================================
+main() {
+    while true; do
+        show_menu
+        read -p "请选择操作 [0-16]: " choice
+        
+        case "$choice" in
+            1)
+                log_info "开始首次部署所有组件..."
+                check_dependencies
+                for key in "${!COMPONENTS[@]}"; do
+                    deploy_component "$key"
+                done
+                log_success "首次部署完成！"
+                ;;
+            2)
+                local key=$(select_component)
+                if [ -n "$key" ]; then
+                    check_dependencies
+                    deploy_component "$key"
+                else
+                    log_error "无效选择"
+                fi
+                ;;
+            3)
+                start_all_services
+                ;;
+            4)
+                stop_all_services
+                ;;
+            5)
+                local key=$(select_component)
+                if [ -n "$key" ]; then
+                    start_service "$key"
+                else
+                    log_error "无效选择"
+                fi
+                ;;
+            6)
+                local key=$(select_component)
+                if [ -n "$key" ]; then
+                    stop_service "$key"
+                else
+                    log_error "无效选择"
+                fi
+                ;;
+            7)
+                show_status
+                ;;
+            8)
+                diagnose_simple
+                ;;
+            9)
+                diagnose_deep
+                ;;
+            10)
+                for key in "${!COMPONENTS[@]}"; do
+                    if [ -d "${INSTALL_DIR}/${key}" ]; then
+                        update_component "$key"
+                    fi
+                done
+                ;;
+            11)
+                update_frontend
+                ;;
+            12)
+                update_agents
+                ;;
+            13)
+                update_models
+                ;;
+            14)
+                local key=$(select_component)
+                if [ -n "$key" ]; then
+                    rollback_component "$key"
+                else
+                    log_error "无效选择"
+                fi
+                ;;
+            15)
+                local key=$(select_component)
+                if [ -n "$key" ]; then
+                    uninstall_component "$key"
+                else
+                    log_error "无效选择"
+                fi
+                ;;
+            16)
+                uninstall_all
+                ;;
+            0)
+                log_info "退出 AI Studio Manager"
+                exit 0
+                ;;
+            *)
+                log_error "无效选项，请重新选择"
+                ;;
+        esac
+        
+        echo ""
+        read -p "按回车键继续..."
+    done
+}
+
+# 检查是否以交互方式运行
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    echo "AI Studio Manager for macOS"
+    echo "用法: $0 [选项]"
+    echo ""
+    echo "选项:"
+    echo "  --deploy-all       首次部署所有组件"
+    echo "  --start-all        启动所有服务"
+    echo "  --stop-all         停止所有服务"
+    echo "  --status           查看状态"
+    echo "  --diagnose-simple  简单诊断"
+    echo "  --diagnose-deep    深度诊断"
+    echo "  --help, -h         显示帮助"
+    echo ""
+    exit 0
+elif [[ "${1:-}" == "--deploy-all" ]]; then
+    check_dependencies
+    for key in "${!COMPONENTS[@]}"; do
+        deploy_component "$key"
+    done
+elif [[ "${1:-}" == "--start-all" ]]; then
+    start_all_services
+elif [[ "${1:-}" == "--stop-all" ]]; then
+    stop_all_services
+elif [[ "${1:-}" == "--status" ]]; then
+    show_status
+elif [[ "${1:-}" == "--diagnose-simple" ]]; then
+    diagnose_simple
+elif [[ "${1:-}" == "--diagnose-deep" ]]; then
+    diagnose_deep
 else
-  main_menu
+    main
 fi

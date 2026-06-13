@@ -1,211 +1,176 @@
 # AI Studio
 
 **A Unified, Modular, and Automated AI Tool Deployment & Management Platform for macOS**
+**专为 macOS 设计的统一、模块化、自动化 AI 工具部署与管理平台**
 
-AI Studio is a comprehensive, bash-based toolkit designed to simplify the deployment, management, and maintenance of local AI tools on macOS. Assuming a "zero-environment" starting point, it automatically detects system requirements, installs missing dependencies, and provides a standardized, unified interface for daily operations, granular updates, and self-diagnosis.
-
----
-
-## 📑 Table of Contents
-
-- [✨ Core Features](#-core-features)
-- [🛠️ Supported Components](#️-supported-components)
-- [💻 System Requirements](#-system-requirements)
-- [🚀 Quick Start](#-quick-start)
-- [📖 Detailed Usage Guide](#-detailed-usage-guide)
-- [🏗️ Architecture & Design Principles](#️-architecture--design-principles)
-- [📂 Directory Structure](#-directory-structure)
-- [⚖️ License](#️-license)
+AI Studio is a comprehensive bash-script-based toolkit designed to simplify the deployment, management, and maintenance of local AI tools on macOS. Assuming a "zero-environment" starting point, it automatically detects system requirements, installs missing dependencies, and provides a standardized interface for daily operations, granular updates, and self-diagnosis.
+AI Studio 是一个基于 Bash 脚本的综合工具集，旨在简化 macOS 上本地 AI 工具的部署、管理和维护。它假设用户处于“零环境”起点，会自动检测系统要求、安装缺失的依赖，并为日常操作、细粒度更新和自我诊断提供标准化的接口。
 
 ---
 
-## ✨ Core Features
+## 🌟 Features / 核心特性
 
-- 🚀 **Zero-Configuration Start**: Automatically detects the macOS environment. If requirements are not met, it seamlessly installs missing dependencies (Homebrew, Python, Node.js, Git, Ollama, etc.) before proceeding with deployment.
-- 🌐 **Auto-Open Browser**: Upon successful service startup, the script automatically detects the running port and invokes the system's default browser to open the corresponding Web UI.
-- 🧩 **Highly Modular**: All 9 major AI components are deployed and managed completely independently. Installing, updating, or uninstalling one component will not interfere with others.
-- 🩺 **Built-in Self-Diagnosis**: Features both "Simple" and "Deep" diagnostic modes to automatically identify port conflicts, missing dependencies, or zombie processes, with an optional one-click auto-fix (`--fix`) capability.
-- 📈 **Progressive Disclosure**: Commands are layered from simple daily operations (`start`/`stop`) to advanced expert configurations (`--target`, `--deep`), revealing complexity only when needed to lower the learning curve.
-- 🔄 **Granular Updates**: Supports independent updates for specific targets: `frontend`, `agent`, `architecture`, or `models`, saving time and bandwidth by avoiding full re-downloads.
+- **🚀 Zero-Configuration Start (零环境起步)**: Automatically detects macOS environment. If requirements are not met, it installs them (Homebrew, Python, Node.js, Git, Ollama, etc.) before proceeding. / 自动检测 macOS 环境，若不符合要求则自动安装依赖，符合则继续部署。
+- **🌐 Auto-Open Browser (自动唤起浏览器)**: Services automatically trigger the system default browser to open the Web UI upon successful startup. / 服务启动成功后，自动调用系统默认浏览器打开 Web 界面。
+- **🧩 Modular & Independent (高度模块化)**: All 9 components are deployed and managed independently. Installing or uninstalling one does not affect others. / 所有组件独立部署和管理，互不干扰。
+- **🩺 Self-Diagnosis (自我诊断)**: Built-in simple and deep diagnostic modes to identify port conflicts, missing dependencies, or process issues, with an optional auto-fix feature. / 内置简单和深入两级诊断模式，排查端口冲突、依赖缺失或进程问题，并支持自动修复。
+- **🔄 Granular Updates (细粒度更新)**: Update specific targets independently: `frontend`, `agent`, `architecture`, or `models`. / 支持针对前端、Agent、底层架构或模型进行独立更新，避免全量更新的时间浪费。
+- **📈 Progressive Disclosure (渐进式披露)**: Commands are designed from simple daily operations to advanced expert configurations, revealing complexity only when needed. / 命令设计从简单的日常操作到高级专家配置，按需展示复杂度。
 
 ---
 
-## 🛠️ Supported Components
+## 🛠️ Supported Components / 支持的组件
 
-| Component Name | Description | Default Port |
+| Component / 组件 | Description / 描述 | Default Port / 默认端口 |
 | :--- | :--- | :---: |
-| **Open WebUI** | A powerful and beautiful local LLM Web interaction interface. | `3000` |
-| **SillyTavern** | Advanced frontend focused on LLM roleplay and complex chatting. | `8000` |
-| **Continue.dev** | Open-source AI coding assistant for VS Code / JetBrains. | N/A |
-| **Fazm** | Native macOS AI Desktop Agent. | N/A |
-| **Browser Use** | AI-driven browser automation and web scraping tool. | `7788` |
-| **MLX** | Apple's machine learning framework optimized for Apple Silicon. | N/A |
-| **ComfyUI** | Powerful node-based image generation UI (Full SDXL/FLUX support). | `8188` |
-| **MLX-Video** | Efficient local video generation tool powered by the MLX framework. | N/A |
-| **QWen3 Uncensored**| Uncensored QWen3 Large Language Model (runs via Ollama). | `11434` |
+| **Open WebUI** | Powerful Web UI for LLMs / 强大的 LLM Web 交互界面 | `3000` |
+| **SillyTavern** | Advanced frontend for LLM roleplay and chatting / 专注于角色扮演的高级 LLM 前端 | `8000` |
+| **Continue.dev** | AI coding assistant for VS Code / JetBrains / VS Code 的 AI 编程助手 | N/A |
+| **Fazm** | Native macOS AI Desktop Agent / macOS 原生 AI 桌面代理 | N/A |
+| **Browser Use** | AI-driven browser automation tool / AI 驱动的浏览器自动化工具 | `7788` |
+| **MLX** | Apple's machine learning framework for Apple Silicon / Apple Silicon 优化的 ML 框架 | N/A |
+| **ComfyUI** | Node-based image generation UI (SDXL/FLUX support) / 节点式图像生成 UI (支持 SDXL/FLUX) | `8188` |
+| **MLX-Video** | Efficient video generation tool powered by MLX / 基于 MLX 的高效视频生成工具 | N/A |
+| **QWen3 Uncensored**| Uncensored QWen3 LLM running via Ollama / 通过 Ollama 运行的无审查版 QWen3 模型 | `11434` |
 
 ---
 
-## 💻 System Requirements
+## 💻 System Requirements / 系统要求
 
-- **Operating System**: macOS 13.0 (Ventura) or later.
-- **Hardware Architecture**: 
+- **OS**: macOS 13.0 (Ventura) or later.
+- **Hardware**: 
   - General components: Intel or Apple Silicon (M1/M2/M3/M4).
-  - **MLX / MLX-Video / ComfyUI**: **Strongly recommended to use Apple Silicon** for optimal hardware acceleration and performance.
-- **RAM**: Minimum 16GB (32GB or more is highly recommended for running large LLMs or FLUX image generation models).
-- **Storage**: At least 50GB of free space (100GB+ is recommended to accommodate large model weights).
-- **Network**: A stable internet connection is required for the initial deployment and model downloads.
+  - **MLX / MLX-Video / ComfyUI**: **Requires Apple Silicon** for optimal performance.
+- **RAM**: Minimum 16GB (32GB+ recommended for large LLMs or FLUX models).
+- **Storage**: At least 50GB free space (100GB+ recommended for model weights).
+- **Network**: Stable internet connection required for initial deployment and model downloads.
 
 ---
 
-## 🚀 Quick Start
-
-For first-time users starting with **no pre-existing environment**, follow these 4 simple steps to prepare your system and launch your first component:
+## 🚀 Quick Start / 快速开始
 
 ```bash
-# 1. Clone the repository to your local machine
-git clone https://github.com/your-username/ai-studio.git
+# 1. Clone the repository / 克隆仓库
+git clone https://github.com/r4fpsdmyr7-blip/ai-studio.git
 cd ai-studio
 
-# 2. Grant execution permissions to the main script
+# 2. Make the main script executable / 赋予主脚本执行权限
 chmod +x ai-studio.sh
 
-# 3. Check and install the system environment 
-# (This will automatically install missing dependencies like Homebrew, Python, Node, etc.)
+# 3. Check and install system environment (auto-installs missing dependencies) 
+#    检测并安装系统环境（自动安装缺失的依赖）
 ./ai-studio.sh env check
 ./ai-studio.sh env install
 
-# 4. Deploy and start Open WebUI 
-# (The browser will automatically open upon successful startup)
+# 4. Install and start a component (e.g., Open WebUI). Browser will open automatically.
+#    安装并启动组件（例如 Open WebUI），启动后会自动打开浏览器。
 ./ai-studio.sh install open-webui
 ./ai-studio.sh start open-webui
 ```
 
 ---
 
-## 📖 Detailed Usage Guide
+## 📖 Detailed Usage Guide / 详细使用指南
 
-AI Studio employs a **Progressive Disclosure** design. Below is the detailed command guide categorized by usage scenarios.
-
-### 1. Environment Management
+### 1. Environment Management / 环境管理
 ```bash
-./ai-studio.sh env check      # Only check if the system environment meets requirements (no installation)
-./ai-studio.sh env install    # Automatically install all missing system-level dependencies
-./ai-studio.sh env status     # View a summary of the current system environment status
+./ai-studio.sh env check      # Check system requirements only / 仅检测系统环境
+./ai-studio.sh env install    # Install all missing dependencies / 安装所有缺失的依赖
+./ai-studio.sh env status     # View current environment status / 查看当前环境状态
 ```
 
-### 2. Component Lifecycle (Deployment & Uninstall)
+### 2. Component Lifecycle / 组件生命周期管理
 ```bash
-# Initial / Individual Deployment
-./ai-studio.sh install <component>       # Deploy a single specific component (e.g., comfyui)
-./ai-studio.sh install all               # Initial deployment of all supported components
+# Installation & Uninstallation / 安装与卸载
+./ai-studio.sh install <component>            # Install a single component / 单独部署组件
+./ai-studio.sh install all                    # Initial deployment of all components / 首次部署所有组件
+./ai-studio.sh uninstall <component>          # Uninstall component / 卸载组件
+./ai-studio.sh uninstall <component> --keep-data # Uninstall but keep user data/models / 卸载但保留数据和模型
 
-# Stop & Uninstall
-./ai-studio.sh uninstall <component>     # Uninstall the specified component
-./ai-studio.sh uninstall <component> --keep-data  # Uninstall the component but retain user data and downloaded models
-./ai-studio.sh uninstall <component> --force      # Force uninstall (ignores warnings about residual processes)
+# Daily Usage / 日常使用
+./ai-studio.sh start <component>              # Start service & auto-open browser / 启动服务并自动打开浏览器
+./ai-studio.sh stop <component>               # Stop service gracefully / 优雅停止服务
+./ai-studio.sh restart <component>            # Restart service / 重启服务
+
+# Status / 查看状态
+./ai-studio.sh status                         # View status of all components / 查看所有组件状态
+./ai-studio.sh status <component>             # View detailed status of one component / 查看单个组件详细状态
+./ai-studio.sh list                           # List all available components / 列出所有可用组件
 ```
 
-### 3. Daily Usage & Status
+### 3. Granular Updates / 细粒度更新
 ```bash
-# Start & Stop
-./ai-studio.sh start <component>         # Start the service (automatically opens the browser upon success)
-./ai-studio.sh stop <component>          # Gracefully stop the service
-./ai-studio.sh restart <component>       # Restart the service
-
-# View Status
-./ai-studio.sh status                    # View the running status and port usage of all components
-./ai-studio.sh status <component>        # View detailed running status of a single component
-./ai-studio.sh list                      # List all available components and their metadata
+./ai-studio.sh update <component>                      # Full update / 全量更新
+./ai-studio.sh update <component> --target frontend    # Update frontend only / 仅更新前端
+./ai-studio.sh update <component> --target agent       # Update agent logic only / 仅更新 Agent
+./ai-studio.sh update <component> --target architecture# Update underlying architecture/deps / 仅更新架构/依赖
+./ai-studio.sh update <component> --target models      # Pull/update model weights only / 仅更新模型
 ```
 
-### 4. Granular Updates
-Supports independent updates for different parts of a component to save time and bandwidth:
+### 4. Self-Diagnosis / 自我诊断
 ```bash
-./ai-studio.sh update <component>                      # Full update of the component
-./ai-studio.sh update <component> --target frontend    # Update frontend code only
-./ai-studio.sh update <component> --target agent       # Update Agent logic only
-./ai-studio.sh update <component> --target architecture# Update underlying architecture or system dependencies only
-./ai-studio.sh update <component> --target models      # Pull/update model weight files only
-```
-
-### 5. Self-Diagnosis
-Use the diagnostic features when a service fails to start or behaves abnormally:
-```bash
-./ai-studio.sh diagnose <component>          # Simple diagnosis (checks processes, ports, basic logs)
-./ai-studio.sh diagnose <component> --deep   # Deep diagnosis (checks dependency versions, config files, RAM/VRAM usage)
-./ai-studio.sh diagnose <component> --deep --fix  # Deep diagnosis and attempt to automatically fix identified issues
+./ai-studio.sh diagnose <component>          # Simple diagnosis (process, port, basic logs) / 简单诊断
+./ai-studio.sh diagnose <component> --deep   # Deep diagnosis (deps, config, memory/GPU usage) / 深入诊断
+./ai-studio.sh diagnose <component> --deep --fix # Deep diagnosis with auto-fix / 深入诊断并尝试自动修复
 ```
 
 ---
 
-## 🏗️ Architecture & Design Principles
+## 🏗️ Architecture & Design Principles / 架构与设计原则
 
-1. **Progressive Disclosure**
-   - **Level 0 (Minimal)**: `start`, `stop`, `status` — Covers 90% of daily usage.
-   - **Level 1 (Standard)**: `install`, `update`, `diagnose` — Covers deployment and maintenance needs.
-   - **Level 2 (Advanced)**: `--target`, `--deep`, `--keep-data` — Covers fine-grained control requirements.
-   - **Level 3 (Expert)**: Directly modifying configuration files in the `config/` directory or editing component scripts.
-
-2. **Standardization**
-   Every component in the `components/<name>/` directory strictly contains 8 standard scripts: `metadata.sh`, `install.sh`, `start.sh`, `stop.sh`, `status.sh`, `update.sh`, `diagnose.sh`, and `uninstall.sh`. The main script calls them through a unified interface, eliminating the need to memorize unique commands for different tools.
-
-3. **Modularization**
-   - **Core Libraries (`lib/`)**: Provide universal underlying capabilities such as logging, color output, process management, and browser control.
-   - **Registry (`registry.sh`)**: Centrally manages metadata for all components (names, ports, descriptions).
-   - **Components (`components/`)**: Business logic is completely isolated. Deleting a component directory will never affect other components.
-
-4. **Universality**
-   Whether it is a Python-based ComfyUI, a Node.js-based SillyTavern, or an Ollama-based QWen3, the main script abstracts away the underlying language differences through an abstraction layer, providing a perfectly consistent CLI experience to the user.
+1. **Progressive Disclosure (渐进式披露)**: Commands are layered. Level 0 (`start/stop`) for daily use, Level 1 (`install/update`) for maintenance, Level 2 (`--target/--deep`) for advanced control.
+2. **Standardization (标准化)**: Every component strictly implements 8 standard scripts: `metadata.sh`, `install.sh`, `start.sh`, `stop.sh`, `status.sh`, `update.sh`, `diagnose.sh`, `uninstall.sh`.
+3. **Modularization (模块化)**: Core libraries (`lib/`) handle universal logic (logging, process management). Components (`components/`) contain isolated business logic.
+4. **Universality (通用化)**: The main script abstracts away the differences between Python, Node.js, or Rust-based tools, providing a unified CLI experience.
 
 ---
 
-## 📂 Directory Structure
+## 📂 Directory Structure / 目录结构
 
 ```text
 ai-studio/
-├── ai-studio.sh              # Main entry point script (CLI routing and scheduling)
-├── README.md                 # Project documentation (this file)
-├── LICENSE                   # GNU GPL v3 License file
-├── lib/                      # Core functional libraries
-│   ├── common.sh             # Universal tools (logging, colors, helper functions)
-│   ├── config.sh             # Global configuration management
-│   ├── env-check.sh          # System environment detection logic
-│   ├── env-install.sh        # System environment installation logic
-│   ├── browser.sh            # Browser auto-open control
-│   ├── process.sh            # Background process and PID management
-│   ├── diagnose.sh           # Universal diagnostic functions
-│   └── ui.sh                 # Terminal UI rendering (progress bars, tables)
-├── components/               # Component directories
-│   ├── registry.sh           # Component registry
-│   ├── open-webui/           # Open WebUI script set (8 standard scripts)
-│   ├── sillytavern/          # SillyTavern script set
-│   ├── continue-dev/         # Continue.dev script set
-│   ├── fazm/                 # Fazm script set
-│   ├── browser-use/          # Browser Use script set
-│   ├── mlx/                  # MLX script set
-│   ├── comfyui/              # ComfyUI script set
-│   ├── mlx-video/            # MLX-Video script set
-│   └── qwen3/                # QWen3 script set
-├── config/                   # Runtime-generated global configuration files
-└── logs/                     # Directory for runtime logs and diagnostic reports
+├── ai-studio.sh              # Main entry point / 主入口脚本
+├── README.md                 # Bilingual documentation / 中英双语文档
+├── LICENSE                   # GNU GPL v3 License / 许可证文件
+├── lib/                      # Core libraries / 核心库
+│   ├── common.sh             # Logging, colors, helpers / 通用工具
+│   ├── config.sh             # Configuration management / 配置管理
+│   ├── env-check.sh          # Environment detection / 环境检测
+│   ├── env-install.sh        # Dependency installation / 环境安装
+│   ├── browser.sh            # Browser auto-open control / 浏览器控制
+│   ├── process.sh            # PID and process management / 进程管理
+│   ├── diagnose.sh           # Diagnostic functions / 诊断函数
+│   └── ui.sh                 # Terminal UI rendering / 终端 UI
+├── components/               # Component scripts / 组件脚本
+│   ├── registry.sh           # Component registry / 组件注册表
+│   ├── open-webui/           # (Contains 8 standard scripts)
+│   ├── sillytavern/
+│   ├── continue-dev/
+│   ├── fazm/
+│   ├── browser-use/
+│   ├── mlx/
+│   ├── comfyui/
+│   ├── mlx-video/
+│   └── qwen3/
+├── config/                   # Runtime configurations / 运行时配置
+└── logs/                     # Logs and diagnostic reports / 日志与诊断报告
 ```
 
 ---
 
-## ⚖️ License
+## ⚖️ License / 许可证
 
 This project is licensed under the **GNU General Public License v3.0 (GNU GPL v3)**.
 
-This means you are free to run, copy, modify, and distribute this software. However, any derivative work or modified version based on this project must also be distributed under the same GPL v3 license (adhering to the Copyleft spirit).
+**Summary of your rights / 您的权利摘要:**
+- **Freedom to Run**: You can run the software for any purpose. / 您可以出于任何目的运行此软件。
+- **Freedom to Study**: You can study how the program works and change it. / 您可以研究软件的工作原理并根据需要进行修改。
+- **Freedom to Distribute**: You can redistribute copies. / 您可以复制和分发副本。
+- **Freedom to Improve**: You can distribute copies of your modified versions to others. / 您可以向公众发布您的改进版本。
 
-**The core spirit guarantees your four essential freedoms:**
-- 🏃 **Freedom to Run**: You can run the program for any purpose.
-- 🔍 **Freedom to Study**: You can study how the program works and change it to make it do what you wish.
-- 📦 **Freedom to Distribute**: You can redistribute copies so you can help others.
-- 🛠️ **Freedom to Improve**: You can distribute copies of your modified versions to others, giving the whole community a chance to benefit from your changes.
+**Copyleft Requirement / Copyleft 要求:**
+Any derivative work or modified version of this project must also be distributed under the same GNU GPL v3 license, ensuring the software remains free and open source. / 任何基于本项目的衍生作品或修改版本，也必须以相同的 GNU GPL v3 许可证进行分发，以确保软件保持自由和开源。
 
-For the full legal text, please refer to the [`LICENSE`](./LICENSE) file in the root directory of this project, or visit the official GNU website: [https://www.gnu.org/licenses/gpl-3.0.html](https://www.gnu.org/licenses/gpl-3.0.html)
+For the full legal text, please see the [`LICENSE`](./LICENSE) file in the root directory, or visit: [https://www.gnu.org/licenses/gpl-3.0.html](https://www.gnu.org/licenses/gpl-3.0.html)
 
 ---
-*Made with ❤️ for the macOS AI Community.*

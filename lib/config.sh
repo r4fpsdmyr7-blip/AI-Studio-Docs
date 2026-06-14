@@ -3,62 +3,64 @@
 # ============================================================================
 # AI Studio - Configuration Library (lib/config.sh)
 # Manages global and component-specific configurations.
-# Uses a simple, robust KEY="VALUE" format for persistence.
+# 
+# CRITICAL FIX: Fully compatible with macOS default Bash 3.2.
+# Removed associative arrays (declare -A) and Bash 4.0+ syntax (${var,,})
+# to prevent "unbound variable" errors under 'set -u'.
 # ============================================================================
 
-# Ensure common functions (like logging) are available
+# Ensure common functions are available
 # This script expects to be sourced after lib/common.sh
 
 # ============================================================================
-# 1. Configuration Paths & Defaults
+# 1. Configuration Paths
 # ============================================================================
-
-# Base configuration directory (relative to AI_STUDIO_ROOT)
 readonly AI_STUDIO_CONFIG_DIR="${AI_STUDIO_ROOT:-.}/config"
 readonly AI_STUDIO_GLOBAL_CONFIG="${AI_STUDIO_CONFIG_DIR}/global.conf"
 
-# Default configuration values (used if not explicitly set)
-declare -A DEFAULT_GLOBAL_CONFIG=(
-    ["AUTO_OPEN_BROWSER"]="true"
-    ["DEFAULT_PORT_OFFSET"]="0"
-    ["LOG_LEVEL"]="info"
-    ["MAX_DIAGNOSE_DEPTH"]="1"
-)
+# ============================================================================
+# 2. Default Values Helper (Bash 3.2 Safe)
+# ============================================================================
+# Using a function instead of an associative array to guarantee compatibility
+# and prevent unbound variable errors in strict mode (set -u).
+get_default_config_value() {
+    local key="$1"
+    case "$key" in
+        "AUTO_OPEN_BROWSER") echo "true" ;;
+        "DEFAULT_PORT_OFFSET") echo "0" ;;
+        "LOG_LEVEL") echo "info" ;;
+        "MAX_DIAGNOSE_DEPTH") echo "1" ;;
+        *) echo "" ;;
+    esac
+}
 
 # ============================================================================
-# 2. Initialization
+# 3. Initialization
 # ============================================================================
-
-# Initialize configuration directory and files
-# Usage: init_config
 init_config() {
-    ensure_dir "$AI_STUDIO_CONFIG_DIR"
+    # Ensure directory exists safely
+    if [[ -n "${AI_STUDIO_CONFIG_DIR:-}" ]]; then
+        mkdir -p "$AI_STUDIO_CONFIG_DIR" 2>/dev/null || true
+    fi
     
-    # Create global config if it doesn't exist
+    # Create global config with defaults if it doesn't exist
     if [[ ! -f "$AI_STUDIO_GLOBAL_CONFIG" ]]; then
-        log_debug "Initializing global configuration file..."
-        touch "$AI_STUDIO_GLOBAL_CONFIG"
-        # Apply defaults
-        for key in "${!DEFAULT_GLOBAL_CONFIG[@]}"; do
-            set_config "$key" "${DEFAULT_GLOBAL_CONFIG[$key]}" "global"
-        done
+        # Using heredoc is the safest, fastest way to initialize without variable expansion risks
+        cat > "$AI_STUDIO_GLOBAL_CONFIG" << 'EOF'
+# AI Studio Global Configuration
+# Generated automatically. Do not remove the quotes around values.
+AUTO_OPEN_BROWSER="true"
+DEFAULT_PORT_OFFSET="0"
+LOG_LEVEL="info"
+MAX_DIAGNOSE_DEPTH="1"
+EOF
     fi
 }
 
 # ============================================================================
-# 3. Core Configuration Operations
+# 4. Core Configuration Operations
 # ============================================================================
 
-# Get the file path for a specific component's config
-# Usage: _get_component_config_file "open-webui"
-_get_component_config_file() {
-    local component="$1"
-    echo "${AI_STUDIO_CONFIG_DIR}/${component}.conf"
-}
-
-# Read a configuration value
-# Usage: value=$(get_config "KEY" ["component_name"])
-# If component_name is omitted or "global", it reads from global.conf
 get_config() {
     local key="$1"
     local target="${2:-global}"
@@ -67,16 +69,11 @@ get_config() {
     if [[ "$target" == "global" ]]; then
         config_file="$AI_STUDIO_GLOBAL_CONFIG"
     else
-        config_file="$(_get_component_config_file "$target")"
+        config_file="${AI_STUDIO_CONFIG_DIR}/${target}.conf"
     fi
 
     if [[ ! -f "$config_file" ]]; then
-        # Fallback to default if file doesn't exist and it's a global key
-        if [[ "$target" == "global" ]] && [[ -n "${DEFAULT_GLOBAL_CONFIG[$key]:-}" ]]; then
-            echo "${DEFAULT_GLOBAL_CONFIG[$key]}"
-        else
-            echo ""
-        fi
+        get_default_config_value "$key"
         return 0
     fi
 
@@ -84,16 +81,14 @@ get_config() {
     local value
     value=$(grep -E "^${key}=" "$config_file" 2>/dev/null | tail -n 1 | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//')
     
-    # If not found in file, check defaults (for global)
-    if [[ -z "$value" ]] && [[ "$target" == "global" ]] && [[ -n "${DEFAULT_GLOBAL_CONFIG[$key]:-}" ]]; then
-        echo "${DEFAULT_GLOBAL_CONFIG[$key]}"
+    # Fallback to default if value is empty
+    if [[ -z "$value" ]]; then
+        get_default_config_value "$key"
     else
         echo "$value"
     fi
 }
 
-# Write or update a configuration value
-# Usage: set_config "KEY" "VALUE" ["component_name"]
 set_config() {
     local key="$1"
     local value="$2"
@@ -103,35 +98,28 @@ set_config() {
     if [[ "$target" == "global" ]]; then
         config_file="$AI_STUDIO_GLOBAL_CONFIG"
     else
-        config_file="$(_get_component_config_file "$target")"
-        ensure_dir "$AI_STUDIO_CONFIG_DIR"
-        touch "$config_file" # Create if not exists
+        config_file="${AI_STUDIO_CONFIG_DIR}/${target}.conf"
+        mkdir -p "$(dirname "$config_file")" 2>/dev/null || true
+        touch "$config_file" 2>/dev/null || true
     fi
 
     # Validate key (alphanumeric and underscores only)
     if [[ ! "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
-        log_error "Invalid configuration key: $key"
+        echo "Error: Invalid configuration key: $key" >&2
         return 1
     fi
 
     # Escape double quotes in value for safe storage
     local escaped_value="${value//\"/\\\"}"
 
-    # Check if key already exists
     if grep -qE "^${key}=" "$config_file" 2>/dev/null; then
         # macOS (BSD) sed requires an empty string for -i ''
-        # Update existing key
         sed -i '' "s|^${key}=.*|${key}=\"${escaped_value}\"|" "$config_file"
-        log_debug "Updated config: $key in $target"
     else
-        # Append new key
         echo "${key}=\"${escaped_value}\"" >> "$config_file"
-        log_debug "Added config: $key in $target"
     fi
 }
 
-# Delete a configuration value
-# Usage: delete_config "KEY" ["component_name"]
 delete_config() {
     local key="$1"
     local target="${2:-global}"
@@ -140,64 +128,37 @@ delete_config() {
     if [[ "$target" == "global" ]]; then
         config_file="$AI_STUDIO_GLOBAL_CONFIG"
     else
-        config_file="$(_get_component_config_file "$target")"
+        config_file="${AI_STUDIO_CONFIG_DIR}/${target}.conf"
     fi
 
-    if [[ ! -f "$config_file" ]]; then
-        return 0
+    if [[ -f "$config_file" ]]; then
+        sed -i '' "/^${key}=/d" "$config_file"
     fi
-
-    # Remove the line matching the key
-    sed -i '' "/^${key}=/d" "$config_file"
-    log_debug "Deleted config: $key from $target"
 }
 
 # ============================================================================
-# 4. Helper / Convenience Functions
+# 5. Helper Functions
 # ============================================================================
 
-# Check if a boolean config is true
-# Usage: if is_config_true "AUTO_OPEN_BROWSER"; then ...
 is_config_true() {
     local key="$1"
     local target="${2:-global}"
     local value
     value=$(get_config "$key" "$target")
     
-    # Convert to lowercase for comparison
-    local lower_value="${value,,}"
-    [[ "$lower_value" == "true" || "$lower_value" == "1" || "$lower_value" == "yes" ]]
-}
-
-# Load all configurations for a specific component into the current shell environment
-# WARNING: Only use this if you trust the config file contents.
-# Usage: load_component_env "open-webui"
-load_component_env() {
-    local component="$1"
-    local config_file="$(_get_component_config_file "$component")"
+    # Convert to lowercase for comparison (Bash 3.2 compatible using 'tr')
+    # DO NOT use ${value,,} as it requires Bash 4.0+
+    local lower_value
+    lower_value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
     
-    if [[ -f "$config_file" ]]; then
-        # Source the file safely (it only contains KEY="VALUE" pairs)
-        # shellcheck disable=SC1090
-        source "$config_file"
-        log_debug "Loaded environment variables for $component"
-    fi
-}
-
-# Reset a component's configuration to defaults (by deleting the file)
-# Usage: reset_component_config "open-webui"
-reset_component_config() {
-    local component="$1"
-    local config_file="$(_get_component_config_file "$component")"
-    
-    if [[ -f "$config_file" ]]; then
-        rm -f "$config_file"
-        log_info "Reset configuration for $component"
+    if [[ "$lower_value" == "true" || "$lower_value" == "1" || "$lower_value" == "yes" ]]; then
+        return 0
+    else
+        return 1
     fi
 }
 
 # ============================================================================
-# 5. Auto-initialization
+# 6. Auto-initialization
 # ============================================================================
-# Automatically ensure config directory exists when this library is sourced
 init_config

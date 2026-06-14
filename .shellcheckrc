@@ -1,0 +1,32 @@
+# ============================================================================
+# AI Studio - ShellCheck Configuration
+# File: .shellcheckrc
+# 
+# This file configures ShellCheck to ignore specific warnings that are 
+# intentional or unavoidable given the project's architecture.
+# ============================================================================
+
+# SC1090: Can't follow non-constant source. Use a directive to specify location.
+# Reason: We dynamically source files using variables (e.g., source "$LIB_DIR/common.sh").
+# This is intentional and safe in our controlled environment.
+disable=SC1090
+
+# SC1091: Not following: (file) was not specified as input (see shellcheck -x).
+# Reason: Same as SC1090. We source files dynamically, and ShellCheck cannot 
+# statically resolve them without explicit -x flags, which we handle via architecture.
+disable=SC1091
+
+# SC2034: (variable) appears unused. Verify use (or export if used externally).
+# Reason: In metadata.sh files, we define and `export` variables that are meant 
+# to be read by *other* scripts after sourcing, not used in the defining script itself.
+disable=SC2034
+
+# SC2154: (variable) is referenced but not assigned.
+# Reason: We often rely on variables being exported by previously sourced scripts 
+# (like AI_STUDIO_ROOT or COMPONENT_NAME). This is by design.
+disable=SC2154
+
+# SC2039: In POSIX sh, 'source' is undefined.
+# Reason: We explicitly use Bash (#!/bin/bash), not POSIX sh. 
+# We can safely use 'source' instead of '.'.
+disable=SC2039

@@ -2,35 +2,37 @@
 
 **A Unified, Modular, and Automated AI Tool Deployment & Management Platform for macOS**
 
+> **Language / 语言**：**English** | [简体中文](README_zh.md) | [Main bilingual README](README.md)
+
 AI Studio is a comprehensive, bash-based toolkit designed to simplify the deployment, management, and maintenance of local AI tools on macOS. Assuming a "zero-environment" starting point, it automatically detects system requirements, installs missing dependencies, and provides a standardized, unified interface for daily operations, granular updates, and self-diagnosis.
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 
-- [✨ Core Features](#-core-features)
-- [🛠️ Supported Components](#️-supported-components)
-- [💻 System Requirements](#-system-requirements)
-- [🚀 Quick Start](#-quick-start)
-- [📖 Detailed Usage Guide](#-detailed-usage-guide)
-- [🏗️ Architecture & Design Principles](#️-architecture--design-principles)
-- [📂 Directory Structure](#-directory-structure)
-- [⚖️ License](#️-license)
-
----
-
-## ✨ Core Features
-
-- 🚀 **Zero-Configuration Start**: Automatically detects the macOS environment. If requirements are not met, it seamlessly installs missing dependencies (Homebrew, Python, Node.js, Git, Ollama, etc.) before proceeding with deployment.
-- 🌐 **Auto-Open Browser**: Upon successful service startup, the script automatically detects the running port and invokes the system's default browser to open the corresponding Web UI.
-- 🧩 **Highly Modular**: All 9 major AI components are deployed and managed completely independently. Installing, updating, or uninstalling one component will not interfere with others.
-- 🩺 **Built-in Self-Diagnosis**: Features both "Simple" and "Deep" diagnostic modes to automatically identify port conflicts, missing dependencies, or zombie processes, with an optional one-click auto-fix (`--fix`) capability.
-- 📈 **Progressive Disclosure**: Commands are layered from simple daily operations (`start`/`stop`) to advanced expert configurations (`--target`, `--deep`), revealing complexity only when needed to lower the learning curve.
-- 🔄 **Granular Updates**: Supports independent updates for specific targets: `frontend`, `agent`, `architecture`, or `models`, saving time and bandwidth by avoiding full re-downloads.
+- [Core Features](#core-features)
+- [Supported Components](#supported-components)
+- [System Requirements](#system-requirements)
+- [Quick Start](#quick-start)
+- [Detailed Usage Guide](#detailed-usage-guide)
+- [Architecture & Design Principles](#architecture--design-principles)
+- [Directory Structure](#directory-structure)
+- [License](#license)
 
 ---
 
-## 🛠️ Supported Components
+## Core Features
+
+- **Zero-Configuration Start**: Automatically detects the macOS environment. If requirements are not met, it seamlessly installs missing dependencies (Homebrew, Python, Node.js, Git, Ollama, etc.) before proceeding with deployment.
+- **Auto-Open Browser**: Upon successful service startup, the script automatically detects the running port and invokes the system's default browser to open the corresponding Web UI.
+- **Highly Modular**: All 9 major AI components are deployed and managed completely independently. Installing, updating, or uninstalling one component will not interfere with others.
+- **Built-in Self-Diagnosis**: Features both "Simple" and "Deep" diagnostic modes to automatically identify port conflicts, missing dependencies, or zombie processes, with an optional one-click auto-fix (`--fix`) capability.
+- **Progressive Disclosure**: Commands are layered from simple daily operations (`start`/`stop`) to advanced expert configurations (`--target`, `--deep`), revealing complexity only when needed to lower the learning curve.
+- **Granular Updates**: Supports independent updates for specific targets: `frontend`, `agent`, `architecture`, or `models`, saving time and bandwidth by avoiding full re-downloads.
+
+---
+
+## Supported Components
 
 | Component Name | Description | Default Port |
 | :--- | :--- | :---: |
@@ -46,7 +48,7 @@ AI Studio is a comprehensive, bash-based toolkit designed to simplify the deploy
 
 ---
 
-## 💻 System Requirements
+## System Requirements
 
 - **Operating System**: macOS 13.0 (Ventura) or later.
 - **Hardware Architecture**: 
@@ -58,7 +60,7 @@ AI Studio is a comprehensive, bash-based toolkit designed to simplify the deploy
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 For first-time users starting with **no pre-existing environment**, follow these 4 simple steps to prepare your system and launch your first component:
 
@@ -83,7 +85,7 @@ chmod +x ai-studio.sh
 
 ---
 
-## 📖 Detailed Usage Guide
+## Detailed Usage Guide
 
 AI Studio employs a **Progressive Disclosure** design. Below is the detailed command guide categorized by usage scenarios.
 
@@ -137,9 +139,28 @@ Use the diagnostic features when a service fails to start or behaves abnormally:
 ./ai-studio.sh diagnose <component> --deep --fix  # Deep diagnosis and attempt to automatically fix identified issues
 ```
 
+### 6. Rebuilding with AI
+
+[`README_FOR_AI.md`](./README_FOR_AI.md) is a **complete rebuild specification for AI**: module
+contracts, file inventory, hard constraints, implementation status and acceptance criteria.
+Hand it to an AI to regenerate this project's skeleton from scratch.
+
+Usage — submit that file together with the following prompt:
+
+```text
+Read README_FOR_AI.md and generate the complete project from scratch according to its spec.
+Requirements:
+1. Follow "§3 Hard Constraints" strictly, especially Bash 3.2 compatibility and the executable bit.
+2. Build step by step following "§10 Recommended Build Order".
+3. Do NOT reproduce any item listed in "§8 Known Defects".
+4. After generating, run every check in "§9 Acceptance Criteria" and report honestly what fails.
+```
+
+> If you want to **modify** this repository rather than rebuild it, read [`AGENTS.md`](./AGENTS.md) instead.
+
 ---
 
-## 🏗️ Architecture & Design Principles
+## Architecture & Design Principles
 
 1. **Progressive Disclosure**
    - **Level 0 (Minimal)**: `start`, `stop`, `status` — Covers 90% of daily usage.
@@ -160,7 +181,7 @@ Use the diagnostic features when a service fails to start or behaves abnormally:
 
 ---
 
-## 📂 Directory Structure
+## Directory Structure
 
 ```text
 ai-studio/
@@ -193,19 +214,19 @@ ai-studio/
 
 ---
 
-## ⚖️ License
+## License
 
 This project is licensed under the **GNU General Public License v3.0 (GNU GPL v3)**.
 
 This means you are free to run, copy, modify, and distribute this software. However, any derivative work or modified version based on this project must also be distributed under the same GPL v3 license (adhering to the Copyleft spirit).
 
 **The core spirit guarantees your four essential freedoms:**
-- 🏃 **Freedom to Run**: You can run the program for any purpose.
-- 🔍 **Freedom to Study**: You can study how the program works and change it to make it do what you wish.
-- 📦 **Freedom to Distribute**: You can redistribute copies so you can help others.
-- 🛠️ **Freedom to Improve**: You can distribute copies of your modified versions to others, giving the whole community a chance to benefit from your changes.
+- **Freedom to Run**: You can run the program for any purpose.
+- **Freedom to Study**: You can study how the program works and change it to make it do what you wish.
+- **Freedom to Distribute**: You can redistribute copies so you can help others.
+- **Freedom to Improve**: You can distribute copies of your modified versions to others, giving the whole community a chance to benefit from your changes.
 
 For the full legal text, please refer to the [`LICENSE`](./LICENSE) file in the root directory of this project, or visit the official GNU website: [https://www.gnu.org/licenses/gpl-3.0.html](https://www.gnu.org/licenses/gpl-3.0.html)
 
 ---
-*Made with ❤️ for the macOS AI Community.*
+*Made with for the macOS AI Community.*

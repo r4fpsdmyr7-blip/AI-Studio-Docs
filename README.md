@@ -3,23 +3,29 @@
 **A Unified, Modular, and Automated AI Tool Deployment & Management Platform for macOS**
 **专为 macOS 设计的统一、模块化、自动化 AI 工具部署与管理平台**
 
+> **语言索引 / Language**
+>
+> 本文档为**中英双语摘要版**。完整文档请按需选择：
+> - **简体中文完整文档** → [`README_zh.md`](./README_zh.md)
+> - **Full English documentation** → [`README_en.md`](./README_en.md)
+
 AI Studio is a comprehensive bash-script-based toolkit designed to simplify the deployment, management, and maintenance of local AI tools on macOS. Assuming a "zero-environment" starting point, it automatically detects system requirements, installs missing dependencies, and provides a standardized interface for daily operations, granular updates, and self-diagnosis.
 AI Studio 是一个基于 Bash 脚本的综合工具集，旨在简化 macOS 上本地 AI 工具的部署、管理和维护。它假设用户处于“零环境”起点，会自动检测系统要求、安装缺失的依赖，并为日常操作、细粒度更新和自我诊断提供标准化的接口。
 
 ---
 
-## 🌟 Features / 核心特性
+## Features / 核心特性
 
-- **🚀 Zero-Configuration Start (零环境起步)**: Automatically detects macOS environment. If requirements are not met, it installs them (Homebrew, Python, Node.js, Git, Ollama, etc.) before proceeding. / 自动检测 macOS 环境，若不符合要求则自动安装依赖，符合则继续部署。
-- **🌐 Auto-Open Browser (自动唤起浏览器)**: Services automatically trigger the system default browser to open the Web UI upon successful startup. / 服务启动成功后，自动调用系统默认浏览器打开 Web 界面。
-- **🧩 Modular & Independent (高度模块化)**: All 9 components are deployed and managed independently. Installing or uninstalling one does not affect others. / 所有组件独立部署和管理，互不干扰。
-- **🩺 Self-Diagnosis (自我诊断)**: Built-in simple and deep diagnostic modes to identify port conflicts, missing dependencies, or process issues, with an optional auto-fix feature. / 内置简单和深入两级诊断模式，排查端口冲突、依赖缺失或进程问题，并支持自动修复。
-- **🔄 Granular Updates (细粒度更新)**: Update specific targets independently: `frontend`, `agent`, `architecture`, or `models`. / 支持针对前端、Agent、底层架构或模型进行独立更新，避免全量更新的时间浪费。
-- **📈 Progressive Disclosure (渐进式披露)**: Commands are designed from simple daily operations to advanced expert configurations, revealing complexity only when needed. / 命令设计从简单的日常操作到高级专家配置，按需展示复杂度。
+- **Zero-Configuration Start (零环境起步)**: Automatically detects macOS environment. If requirements are not met, it installs them (Homebrew, Python, Node.js, Git, Ollama, etc.) before proceeding. / 自动检测 macOS 环境，若不符合要求则自动安装依赖，符合则继续部署。
+- **Auto-Open Browser (自动唤起浏览器)**: Services automatically trigger the system default browser to open the Web UI upon successful startup. / 服务启动成功后，自动调用系统默认浏览器打开 Web 界面。
+- **Modular & Independent (高度模块化)**: All 9 components are deployed and managed independently. Installing or uninstalling one does not affect others. / 所有组件独立部署和管理，互不干扰。
+- **Self-Diagnosis (自我诊断)**: Built-in simple and deep diagnostic modes to identify port conflicts, missing dependencies, or process issues, with an optional auto-fix feature. / 内置简单和深入两级诊断模式，排查端口冲突、依赖缺失或进程问题，并支持自动修复。
+- **Granular Updates (细粒度更新)**: Update specific targets independently: `frontend`, `agent`, `architecture`, or `models`. / 支持针对前端、Agent、底层架构或模型进行独立更新，避免全量更新的时间浪费。
+- **Progressive Disclosure (渐进式披露)**: Commands are designed from simple daily operations to advanced expert configurations, revealing complexity only when needed. / 命令设计从简单的日常操作到高级专家配置，按需展示复杂度。
 
 ---
 
-## 🛠️ Supported Components / 支持的组件
+## Supported Components / 支持的组件
 
 | Component / 组件 | Description / 描述 | Default Port / 默认端口 |
 | :--- | :--- | :---: |
@@ -35,7 +41,7 @@ AI Studio 是一个基于 Bash 脚本的综合工具集，旨在简化 macOS 上
 
 ---
 
-## 💻 System Requirements / 系统要求
+## System Requirements / 系统要求
 
 - **OS**: macOS 13.0 (Ventura) or later.
 - **Hardware**: 
@@ -47,7 +53,7 @@ AI Studio 是一个基于 Bash 脚本的综合工具集，旨在简化 macOS 上
 
 ---
 
-## 🚀 Quick Start / 快速开始
+## Quick Start / 快速开始
 
 ```bash
 # 1. Clone the repository / 克隆仓库
@@ -70,7 +76,7 @@ chmod +x ai-studio.sh
 
 ---
 
-## 📖 Detailed Usage Guide / 详细使用指南
+## Detailed Usage Guide / 详细使用指南
 
 ### 1. Environment Management / 环境管理
 ```bash
@@ -114,9 +120,27 @@ chmod +x ai-studio.sh
 ./ai-studio.sh diagnose <component> --deep --fix # Deep diagnosis with auto-fix / 深入诊断并尝试自动修复
 ```
 
+### 5. Rebuilding with AI / 用 AI 重建本项目
+
+[`README_FOR_AI.md`](./README_FOR_AI.md) 是一份**面向 AI 的完整重建规格**：模块契约、文件清单、
+硬性约束、实现状态与验收标准。把它交给 AI，即可从零重建本项目的骨架。
+
+用法 —— 把该文件连同下面这段提示词一起提交给 AI：
+
+```text
+请阅读 README_FOR_AI.md，按其规格从零生成完整项目。
+要求：
+1. 严格遵守「§3 硬性技术约束」，尤其是 Bash 3.2 兼容与脚本可执行位；
+2. 按「§10 推荐重建顺序」逐步生成；
+3. 不要复现「§8 已知缺陷」中列出的任何一条；
+4. 生成后逐项执行「§9 验收标准」，并如实报告未通过项。
+```
+
+> 如果你是要**修改**本仓库而非重建，请改读 [`AGENTS.md`](./AGENTS.md)。
+
 ---
 
-## 🏗️ Architecture & Design Principles / 架构与设计原则
+## Architecture & Design Principles / 架构与设计原则
 
 1. **Progressive Disclosure (渐进式披露)**: Commands are layered. Level 0 (`start/stop`) for daily use, Level 1 (`install/update`) for maintenance, Level 2 (`--target/--deep`) for advanced control.
 2. **Standardization (标准化)**: Every component strictly implements 8 standard scripts: `metadata.sh`, `install.sh`, `start.sh`, `stop.sh`, `status.sh`, `update.sh`, `diagnose.sh`, `uninstall.sh`.
@@ -125,7 +149,7 @@ chmod +x ai-studio.sh
 
 ---
 
-## 📂 Directory Structure / 目录结构
+## Directory Structure / 目录结构
 
 ```text
 ai-studio/
@@ -158,7 +182,7 @@ ai-studio/
 
 ---
 
-## ⚖️ License / 许可证
+## License / 许可证
 
 This project is licensed under the **GNU General Public License v3.0 (GNU GPL v3)**.
 

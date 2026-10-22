@@ -1,0 +1,31 @@
+# ============================================================================
+# AI Studio - CODEOWNERS
+# ============================================================================
+# 语法：<路径模式> <负责人>
+# 匹配到最后一个规则生效，因此请把更具体的规则写在后面。
+# 配合分支保护规则（Require PR review）使用，会自动指派 reviewer。
+# ============================================================================
+
+# 默认负责人：项目维护者
+*                           @r4fpsdmyr7-blip
+
+# 主入口与核心库：改动影响所有组件，需要格外谨慎
+/ai-studio.sh               @r4fpsdmyr7-blip
+/lib/                       @r4fpsdmyr7-blip
+
+# 组件注册表：新增组件必须同步修改
+/components/registry.sh     @r4fpsdmyr7-blip
+
+# 环境安装脚本：会改动用户系统（Homebrew / Xcode CLI / Python / Node）
+/env/                       @r4fpsdmyr7-blip
+
+# CI 与贡献流程
+/.github/                   @r4fpsdmyr7-blip
+/Makefile                   @r4fpsdmyr7-blip
+
+# 文档
+/README.md                  @r4fpsdmyr7-blip
+/README_zh.md               @r4fpsdmyr7-blip
+/README_en.md               @r4fpsdmyr7-blip
+/CONTRIBUTING.md            @r4fpsdmyr7-blip
+/CHANGELOG.md               @r4fpsdmyr7-blip

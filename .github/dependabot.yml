@@ -1,0 +1,49 @@
+# ============================================================================
+# AI Studio - Dependabot 配置
+# https://docs.github.com/code-security/dependabot
+# ============================================================================
+
+version: 2
+updates:
+  # --------------------------------------------------------------------------
+  # 1. GitHub Actions 工作流依赖
+  #    本项目的 actions/checkout 等 action 版本需要持续跟进
+  # --------------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "chore"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # --------------------------------------------------------------------------
+  # 2. Python 依赖
+  #    组件在各自的虚拟环境中安装 Python 包。若后续把 requirements.txt
+  #    收拢到仓库根目录（推荐），取消下面的注释即可启用自动更新。
+  # --------------------------------------------------------------------------
+  # - package-ecosystem: "pip"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #   open-pull-requests-limit: 5
+  #   labels:
+  #     - "dependencies"
+
+  # --------------------------------------------------------------------------
+  # 3. npm 依赖
+  #    目前尚无 package.json（SillyTavern 等 Node 组件未实现）。
+  #    新增 Node 组件后请启用。
+  # --------------------------------------------------------------------------
+  # - package-ecosystem: "npm"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #   open-pull-requests-limit: 5
+  #   labels:
+  #     - "dependencies"

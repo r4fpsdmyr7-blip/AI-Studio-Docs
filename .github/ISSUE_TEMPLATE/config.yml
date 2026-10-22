@@ -1,0 +1,24 @@
+# ============================================================================
+# AI Studio - Issue 模板配置
+# ============================================================================
+
+# 关闭「空白 Issue」，引导贡献者使用上面的表单模板，
+# 可以显著提升 Issue 的信息完整度。
+blank_issues_enabled: false
+
+contact_links:
+  - name: 使用问题与经验交流
+    url: https://github.com/r4fpsdmyr7-blip/AI-Studio-Docs/discussions
+    about: 安装、配置、日常使用中的疑问请到 Discussions，Bug 才开 Issue。
+
+  - name: 使用文档
+    url: https://github.com/r4fpsdmyr7-blip/AI-Studio-Docs#readme
+    about: 多数问题可以在 README / SUPPORT.md 中找到答案。
+
+  - name: 获取帮助
+    url: https://github.com/r4fpsdmyr7-blip/AI-Studio-Docs/blob/main/SUPPORT.md
+    about: 完整的求助渠道清单与提问时应提供的信息。
+
+  - name: 报告安全漏洞
+    url: https://github.com/r4fpsdmyr7-blip/AI-Studio-Docs/security/advisories/new
+    about: [WARN] 安全漏洞请勿开公开 Issue，请通过 Security Advisories 私下报告。

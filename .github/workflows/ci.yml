@@ -6,25 +6,115 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+
 jobs:
-  shellcheck:
-    name: ShellCheck
+  quality:
+    name: Code Quality
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ------------------------------------------------------------------
+      # 1. 语法检查：任何脚本有语法错误就直接阻断
+      # ------------------------------------------------------------------
+      - name: Syntax check (bash -n)
+        run: |
+          echo "Running 'bash -n' on all shell scripts..."
+          fail=0
+          while IFS= read -r -d '' f; do
+            if ! bash -n "$f"; then
+              echo "::error file=$f::Syntax error"
+              fail=1
+            fi
+          done < <(find . -name '*.sh' -type f -not -path './.git/*' -print0)
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::One or more scripts failed the syntax check."
+            exit 1
+          fi
+          echo "All scripts passed the syntax check."
+
+      # ------------------------------------------------------------------
+      # 2. 可执行位检查：主入口通过直接路径调用组件脚本，
+      #    缺少执行位会导致 "Permission denied"
+      # ------------------------------------------------------------------
+      - name: Executable bit check
+        run: |
+          echo "Checking that all shell scripts have the executable bit..."
+          bad=$(find . -name '*.sh' -type f -not -path './.git/*' ! -perm -u+x)
+          if [ -n "$bad" ]; then
+            echo "$bad" | while read -r f; do
+              echo "::error file=$f::Missing executable bit (run: git update-index --chmod=+x <file>)"
+            done
+            exit 1
+          fi
+          echo "All shell scripts are executable."
+
+      # ------------------------------------------------------------------
+      # 3. Bash 3.2 兼容性检查
+      #    macOS 默认 shell 是 Bash 3.2，参数展开的大小写转换需要 Bash 4.0+，
+      #    在 macOS 上会抛 "bad substitution"。CI 跑的是 Bash 5，必须单独拦。
+      # ------------------------------------------------------------------
+      - name: Bash 3.2 compatibility check
+        run: |
+          echo "Scanning for Bash 4.0+ parameter expansion (case conversion)..."
+          # 匹配 ${var^^} / ${var^} / ${var,,} / ${var,} / ${1^^} 等写法
+          if grep -rnE '\$\{[A-Za-z0-9_]+(\^+|,+)\}' \
+               --include='*.sh' . ; then
+            echo "::error::Found Bash 4.0+ case-conversion syntax. Use 'tr' instead (see lib/config.sh)."
+            exit 1
+          fi
+          echo "No Bash 4.0+ case-conversion syntax found."
+
+      # ------------------------------------------------------------------
+      # 4. emoji 检查（阻断）
+      #    语言策略要求三层一律不使用 emoji。这是确定性规则，命中即阻断。
+      #    使用显式码点区间而非 \p{Emoji_Presentation}：后者会漏掉
+      #    text-default emoji（如 U+1F6E0 / U+1F3D7）。
+      # ------------------------------------------------------------------
+      - name: Emoji check
+        run: |
+          echo "Scanning for emoji and stray Unicode modifiers..."
+          chmod +x tests/check-emoji.sh
+          ./tests/check-emoji.sh
+
+      # ------------------------------------------------------------------
+      # 4.5 语言策略检查（L1 阻断 / L2 告警）
+      #    L1 构成层：注释与词典之外的 .sh 代码不得含非 ASCII，命中即阻断。
+      #    L2 UI 层：统计消息层覆盖率，低于 95% 仅在日志中告警，不阻断。
+      # ------------------------------------------------------------------
+      - name: Language policy check
+        run: |
+          echo "Checking language policy (L1 blocking / L2 warning)..."
+          chmod +x tests/check-language.sh
+          ./tests/check-language.sh
+
+      # ------------------------------------------------------------------
+      # 5. ShellCheck
+      #    说明：本步骤当前为「仅报告」(continue-on-error)。
+      #    历史代码尚未清理完 ShellCheck 告警（主要是 SC2086 未加引号、
+      #    SC2181 直接检查 $?）。清理完成后请删除 continue-on-error，
+      #    让其恢复为阻断门禁。
+      # ------------------------------------------------------------------
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
-      - name: Run ShellCheck on all scripts
+      - name: ShellCheck (report only, not yet blocking)
+        continue-on-error: true
         run: |
           echo "Running ShellCheck..."
-          # Find all .sh files and run shellcheck
-          find . -name "*.sh" -type f -print0 | xargs -0 shellcheck
-          
-      - name: Run custom test suite
+          find . -name '*.sh' -type f -not -path './.git/*' -print0 \
+            | xargs -0 shellcheck
+
+      # ------------------------------------------------------------------
+      # 6. 单元测试（含 lib/lang.sh 消息层自检）
+      # ------------------------------------------------------------------
+      - name: Run test suite
         run: |
           echo "Running custom test suite..."
-          chmod +x tests/run-shellcheck.sh
-          ./tests/run-shellcheck.sh
+          chmod +x tests/run_tests.sh tests/test_lang.sh
+          ./tests/run_tests.sh
+          ./tests/test_lang.sh

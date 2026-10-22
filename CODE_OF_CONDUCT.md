@@ -1,4 +1,3 @@
-```markdown
 # 贡献者公约 (Contributor Covenant Code of Conduct)
 
 ## 我们的承诺 (Our Pledge)
@@ -35,7 +34,12 @@
 
 ## 执行 (Enforcement)
 
-如有虐待、骚扰或其他不可接受的行为，请通过 ISSUES 向项目团队报告。所有投诉都将得到及时和公平的审查和调查。
+如有虐待、骚扰或其他不可接受的行为，请**通过 GitHub Security Advisories 私密渠道**报告，
+**不要开公开 Issue**：
+
+提交地址：https://github.com/r4fpsdmyr7-blip/AI-Studio-Docs/security/advisories/new
+
+所有投诉都将得到及时和公平的审查和调查。
 
 所有项目维护者都有义务尊重任何事件报告者的隐私和安全。
 

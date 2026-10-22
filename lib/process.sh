@@ -32,7 +32,7 @@ _save_pid() {
     local component="$1"
     local pid="$2"
     echo "$pid" > "$(_get_pid_file "$component")"
-    log_debug "Saved PID $pid for $component"
+    log_debug "$(msgf PROC_PID_SAVED "$pid" "$component")"
 }
 
 _read_pid() {
@@ -49,7 +49,7 @@ _read_pid() {
 _clear_pid() {
     local component="$1"
     rm -f "$(_get_pid_file "$component")"
-    log_debug "Cleared PID file for $component"
+    log_debug "$(msgf PROC_PID_CLEARED "$component")"
 }
 
 # ============================================================================
@@ -67,12 +67,12 @@ start_daemon() {
     # Check if already running
     if is_daemon_running "$component"; then
         local existing_pid=$(_read_pid "$component")
-        log_warn "$component is already running (PID: $existing_pid). Skipping start."
+        log_warn "$(msgf PROC_ALREADY_RUNNING "$component" "$existing_pid")"
         return 0
     fi
 
-    log_info "Starting $component in background..."
-    log_debug "Command: ${cmd[*]}"
+    log_info "$(msgf PROC_STARTING "$component")"
+    log_debug "$(msgf PROC_COMMAND "${cmd[*]}")"
 
     # Start process, redirect output to log, run detached
     nohup "${cmd[@]}" >> "$log_file" 2>&1 &
@@ -85,12 +85,12 @@ start_daemon() {
     # Brief wait to verify startup
     sleep 1
     if _is_pid_alive "$pid"; then
-        log_success "$component started successfully (PID: $pid)."
-        log_info "Logs: ${COLOR_GRAY}${log_file}${COLOR_RESET}"
+        log_success "$(msgf PROC_START_OK "$component" "$pid")"
+        log_info "$(msgf PROC_LOGS "${COLOR_GRAY}${log_file}${COLOR_RESET}")"
         return 0
     else
-        log_error "$component failed to start. PID $pid exited immediately."
-        log_info "Check logs for details: ${COLOR_GRAY}${log_file}${COLOR_RESET}"
+        log_error "$(msgf PROC_START_FAIL "$component" "$pid")"
+        log_info "$(msgf PROC_CHECK_LOGS "${COLOR_GRAY}${log_file}${COLOR_RESET}")"
         _clear_pid "$component"
         return 1
     fi
@@ -105,12 +105,12 @@ stop_daemon() {
     pid=$(_read_pid "$component")
 
     if [[ -z "$pid" ]] || ! _is_pid_alive "$pid"; then
-        log_info "$component is not running."
+        log_info "$(msgf PROC_NOT_RUNNING "$component")"
         _clear_pid "$component"
         return 0
     fi
 
-    log_info "Stopping $component (PID: $pid) gracefully..."
+    log_info "$(msgf PROC_STOPPING "$component" "$pid")"
     kill -TERM "$pid" 2>/dev/null
 
     # Wait for graceful termination
@@ -121,13 +121,13 @@ stop_daemon() {
     done
 
     if _is_pid_alive "$pid"; then
-        log_warn "$component did not respond to SIGTERM within ${timeout}s. Force killing..."
+        log_warn "$(msgf PROC_SIGTERM_TIMEOUT "$component" "$timeout")"
         kill -KILL "$pid" 2>/dev/null
         sleep 1
     fi
 
     _clear_pid "$component"
-    log_success "$component stopped successfully."
+    log_success "$(msgf PROC_STOP_OK "$component")"
     return 0
 }
 
@@ -217,12 +217,12 @@ clean_stale_pids() {
 
         if [[ -z "$pid" ]] || ! _is_pid_alive "$pid"; then
             _clear_pid "$component"
-            log_debug "Cleaned stale PID for $component"
+            log_debug "$(msgf PROC_STALE_CLEANED "$component")"
             ((cleaned++))
         fi
     done
     if [[ $cleaned -gt 0 ]]; then
-        log_info "Cleaned $cleaned stale PID file(s)."
+        log_info "$(msgf PROC_STALE_FILES "$cleaned")"
     fi
 }
 
@@ -231,11 +231,11 @@ clean_stale_pids() {
 kill_process_on_port() {
     local port="$1"
     if ! is_port_in_use "$port"; then
-        log_info "Port $port is not in use."
+        log_info "$(msgf PROC_PORT_FREE "$port")"
         return 0
     fi
 
-    log_warn "Force killing process on port $port..."
+    log_warn "$(msgf PROC_PORT_FORCE_KILL "$port")"
     # Find PID using lsof
     local pid
     pid=$(lsof -ti ":$port" 2>/dev/null | head -n 1)
@@ -244,13 +244,13 @@ kill_process_on_port() {
         kill -KILL "$pid" 2>/dev/null
         sleep 1
         if ! is_port_in_use "$port"; then
-            log_success "Process on port $port terminated."
+            log_success "$(msgf PROC_PORT_KILLED "$port")"
         else
-            log_error "Failed to free port $port. Manual intervention required."
+            log_error "$(msgf PROC_PORT_FREE_FAILED "$port")"
             return 1
         fi
     else
-        log_warn "Could not identify PID for port $port."
+        log_warn "$(msgf PROC_PORT_NO_PID "$port")"
         return 1
     fi
 }

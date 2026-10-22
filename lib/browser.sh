@@ -20,18 +20,18 @@ open_browser() {
 
     # 1. Respect user configuration (Progressive Disclosure: can be disabled)
     if ! is_config_true "AUTO_OPEN_BROWSER" "global"; then
-        log_debug "Auto-open browser is disabled in config. Skipping opening: $url"
+        log_debug "$(msgf BROWSER_AUTO_DISABLED "$url")"
         return 0
     fi
 
     # 2. Basic URL validation
     if [[ ! "$url" =~ ^https?:// ]]; then
-        log_error "Invalid URL provided to open_browser: $url"
+        log_error "$(msgf BROWSER_INVALID_URL "$url")"
         return 1
     fi
 
     # 3. Execute the open command
-    log_info "Opening browser to: ${COLOR_CYAN}${url}${COLOR_RESET}"
+    log_info "$(msgf BROWSER_OPENING "${COLOR_CYAN}${url}${COLOR_RESET}")"
     
     local open_cmd
     if [[ -n "$browser" ]]; then
@@ -44,11 +44,11 @@ open_browser() {
 
     # Execute and capture output/errors silently, checking exit status
     if "${open_cmd[@]}" 2>/dev/null; then
-        log_success "Browser opened successfully."
+        log_success "$(msg BROWSER_OPENED)"
         return 0
     else
-        log_warn "Failed to automatically open the browser via command line."
-        log_info "Please manually open your browser and navigate to: ${COLOR_CYAN}${url}${COLOR_RESET}"
+        log_warn "$(msg BROWSER_OPEN_FAILED)"
+        log_info "$(msgf BROWSER_MANUAL_HINT "${COLOR_CYAN}${url}${COLOR_RESET}")"
         return 1
     fi
 }
@@ -62,7 +62,7 @@ open_browser_when_ready() {
     local timeout="${3:-15}" # Default 15 seconds timeout
     local browser="${4:-}"   # Optional specific browser
 
-    log_info "Waiting for service on port $port before opening browser..."
+    log_info "$(msgf BROWSER_WAITING_PORT "$port")"
     
     # Reuse the robust wait_for_port function from common.sh
     if wait_for_port "$port" "$timeout"; then
@@ -70,10 +70,10 @@ open_browser_when_ready() {
         sleep 1
         open_browser "$url" "$browser"
     else
-        log_warn "Service on port $port did not become ready within ${timeout} seconds."
-        log_info "The service might still be starting up in the background, or it may have failed."
-        log_info "You can manually try accessing: ${COLOR_CYAN}${url}${COLOR_RESET}"
-        log_info "Or check the logs: ${COLOR_GRAY}./ai-studio.sh status $port${COLOR_RESET} (Note: check component status instead)"
+        log_warn "$(msgf BROWSER_PORT_NOT_READY "$port" "$timeout")"
+        log_info "$(msg BROWSER_MAYBE_STARTING)"
+        log_info "$(msgf BROWSER_TRY_MANUAL "${COLOR_CYAN}${url}${COLOR_RESET}")"
+        log_info "$(msgf BROWSER_CHECK_LOGS "${COLOR_GRAY}./ai-studio.sh status $port${COLOR_RESET}")"
         return 1
     fi
 }
@@ -117,11 +117,11 @@ force_open_browser() {
     # Temporarily override the config check by directly calling the core logic
     # We duplicate the validation and execution here for safety and clarity
     if [[ ! "$url" =~ ^https?:// ]]; then
-        log_error "Invalid URL provided to force_open_browser: $url"
+        log_error "$(msgf BROWSER_FORCE_INVALID_URL "$url")"
         return 1
     fi
 
-    log_info "Force opening browser to: ${COLOR_CYAN}${url}${COLOR_RESET}"
+    log_info "$(msgf BROWSER_FORCE_OPENING "${COLOR_CYAN}${url}${COLOR_RESET}")"
     
     if [[ -n "$browser" ]]; then
         open -a "$browser" "$url" 2>/dev/null
@@ -132,7 +132,7 @@ force_open_browser() {
     if [[ $? -eq 0 ]]; then
         return 0
     else
-        log_warn "Failed to open browser. Please navigate manually to: $url"
+        log_warn "$(msgf BROWSER_FORCE_FAILED "$url")"
         return 1
     fi
 }

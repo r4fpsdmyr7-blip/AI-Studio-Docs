@@ -26,9 +26,9 @@ readonly RECOMMENDED_TOOLS=("brew" "ollama")
 
 # Check macOS version
 check_os_version() {
-    log_info "Checking macOS version..."
+    log_info "$(msg ENVCHECK_MACOS_START)"
     if ! is_macos; then
-        log_error "Unsupported operating system. AI Studio requires macOS."
+        log_error "$(msg ENVCHECK_UNSUPPORTED_OS)"
         return 1
     fi
 
@@ -36,26 +36,26 @@ check_os_version() {
     os_version=$(sw_vers -productVersion | cut -d. -f1)
     
     if [[ "$os_version" -lt "$MIN_MACOS_VERSION" ]]; then
-        log_error "macOS version is too old. Found: $(sw_vers -productVersion), Required: ${MIN_MACOS_VERSION}.0 or later."
+        log_error "$(msgf ENVCHECK_MACOS_OLD "$(sw_vers -productVersion)" "$MIN_MACOS_VERSION")"
         return 1
     fi
     
-    log_success "macOS version check passed ($(sw_vers -productVersion))."
+    log_success "$(msgf ENVCHECK_MACOS_OK "$(sw_vers -productVersion)")"
     return 0
 }
 
 # Check hardware architecture
 check_hardware() {
-    log_info "Checking hardware architecture..."
+    log_info "$(msg ENVCHECK_HW_START)"
     local arch
     arch=$(uname -m)
     
     if [[ "$arch" == "arm64" ]]; then
-        log_success "Hardware check passed: Apple Silicon ($arch) detected. (Optimal for MLX/ComfyUI)"
+        log_success "$(msgf ENVCHECK_HW_APPLE "$arch")"
     elif [[ "$arch" == "x86_64" ]]; then
-        log_warn "Hardware check passed: Intel ($arch) detected. Note: MLX and MLX-Video components require Apple Silicon and will be disabled or run with limitations."
+        log_warn "$(msgf ENVCHECK_HW_INTEL "$arch")"
     else
-        log_error "Unknown hardware architecture: $arch"
+        log_error "$(msgf ENVCHECK_HW_UNKNOWN "$arch")"
         return 1
     fi
     return 0
@@ -63,7 +63,7 @@ check_hardware() {
 
 # Check available disk space
 check_disk_space() {
-    log_info "Checking available disk space..."
+    log_info "$(msg ENVCHECK_DISK_START)"
     # Get available space in GB on the root partition
     local available_gb
     available_gb=$(df -g / | awk 'NR==2 {print $4}')
@@ -72,24 +72,24 @@ check_disk_space() {
     available_gb=$(echo "$available_gb" | tr -dc '0-9')
 
     if [[ "$available_gb" -lt "$MIN_DISK_SPACE_GB" ]]; then
-        log_error "Insufficient disk space. Found: ${available_gb}GB, Required: ${MIN_DISK_SPACE_GB}GB+."
-        log_info "Please free up disk space before proceeding."
+        log_error "$(msgf ENVCHECK_DISK_LOW "$available_gb" "$MIN_DISK_SPACE_GB")"
+        log_info "$(msg ENVCHECK_DISK_HINT)"
         return 1
     fi
     
-    log_success "Disk space check passed (${available_gb}GB available)."
+    log_success "$(msgf ENVCHECK_DISK_OK "$available_gb")"
     return 0
 }
 
 # Check system memory (RAM)
 check_memory() {
-    log_info "Checking system memory..."
+    log_info "$(msg ENVCHECK_MEM_START)"
     # Get total memory in bytes, then convert to GB
     local mem_bytes
     mem_bytes=$(sysctl -n hw.memsize 2>/dev/null)
     
     if [[ -z "$mem_bytes" ]]; then
-        log_warn "Could not determine system memory. Skipping check."
+        log_warn "$(msg ENVCHECK_MEM_UNKNOWN)"
         return 0
     fi
 
@@ -97,18 +97,18 @@ check_memory() {
     local mem_gb=$((mem_bytes / 1073741824))
 
     if [[ "$mem_gb" -lt "$MIN_MEMORY_GB" ]]; then
-        log_warn "System memory is below recommended minimum. Found: ${mem_gb}GB, Recommended: ${MIN_MEMORY_GB}GB+."
-        log_info "Some large models (e.g., FLUX, large LLMs) may fail to load or run slowly."
+        log_warn "$(msgf ENVCHECK_MEM_LOW "$mem_gb" "$MIN_MEMORY_GB")"
+        log_info "$(msg ENVCHECK_MEM_HINT)"
         # Return 0 because it's a warning, not a hard failure for basic usage
     else
-        log_success "System memory check passed (${mem_gb}GB)."
+        log_success "$(msgf ENVCHECK_MEM_OK "$mem_gb")"
     fi
     return 0
 }
 
 # Check for required and recommended command-line tools
 check_tools() {
-    log_info "Checking required command-line tools..."
+    log_info "$(msg ENVCHECK_TOOLS_START)"
     local missing_required=()
     local missing_recommended=()
 
@@ -126,16 +126,16 @@ check_tools() {
 
     # Report results
     if [[ ${#missing_required[@]} -gt 0 ]]; then
-        log_error "Missing required tools: ${missing_required[*]}"
-        log_info "Run './ai-studio.sh env install' to automatically install missing dependencies."
+        log_error "$(msgf ENVCHECK_MISSING_REQUIRED "${missing_required[*]}")"
+        log_info "$(msg ENVCHECK_INSTALL_HINT)"
         return 1
     fi
 
     if [[ ${#missing_recommended[@]} -gt 0 ]]; then
-        log_warn "Missing recommended tools: ${missing_recommended[*]}"
-        log_info "It is highly recommended to run './ai-studio.sh env install' to install these for full functionality."
+        log_warn "$(msgf ENVCHECK_MISSING_RECOMMENDED "${missing_recommended[*]}")"
+        log_info "$(msg ENVCHECK_INSTALL_REC_HINT)"
     else
-        log_success "All required and recommended tools are present."
+        log_success "$(msg ENVCHECK_TOOLS_OK)"
     fi
     
     return 0
@@ -150,7 +150,7 @@ check_tools() {
 # Returns: 0 if all critical checks pass, 1 if any critical check fails
 check_all_requirements() {
     print_separator
-    log_info "Starting AI Studio Environment Check..."
+    log_info "$(msg ENVCHECK_START)"
     print_separator
 
     local failed_checks=0
@@ -165,11 +165,11 @@ check_all_requirements() {
     print_separator
     
     if [[ $failed_checks -eq 0 ]]; then
-        log_success "Environment check PASSED. Your system is ready for deployment."
+        log_success "$(msg ENVCHECK_PASSED)"
         return 0
     else
-        log_error "Environment check FAILED with $failed_checks critical issue(s)."
-        log_info "Please resolve the issues above, or run './ai-studio.sh env install' to attempt automatic fixes."
+        log_error "$(msgf ENVCHECK_FAILED "$failed_checks")"
+        log_info "$(msg ENVCHECK_FAILED_HINT)"
         return 1
     fi
 }
@@ -181,24 +181,24 @@ check_all_requirements() {
 # Show a brief summary of the environment status (for `ai-studio.sh env status`)
 show_environment_status() {
     echo ""
-    echo "=== AI Studio Environment Status ==="
-    printf "%-25s : %s\n" "OS" "$(sw_vers -productName) $(sw_vers -productVersion)"
-    printf "%-25s : %s\n" "Architecture" "$(uname -m)"
+    echo "$(msg ENVCHECK_STATUS_TITLE)"
+    printf "%s : %s\n" "$(pad_display "$(msg ENVCHECK_LBL_OS)" 25)" "$(sw_vers -productName) $(sw_vers -productVersion)"
+    printf "%s : %s\n" "$(pad_display "$(msg ENVCHECK_LBL_ARCH)" 25)" "$(uname -m)"
     
     local mem_bytes=$(sysctl -n hw.memsize 2>/dev/null)
     local mem_gb=$((mem_bytes / 1073741824))
-    printf "%-25s : %s GB\n" "Total Memory" "$mem_gb"
+    printf "%s : %s GB\n" "$(pad_display "$(msg ENVCHECK_LBL_MEM)" 25)" "$mem_gb"
     
     local available_gb=$(df -g / | awk 'NR==2 {print $4}')
-    printf "%-25s : %s GB\n" "Available Disk" "$available_gb"
+    printf "%s : %s GB\n" "$(pad_display "$(msg ENVCHECK_LBL_DISK)" 25)" "$available_gb"
     
     echo ""
-    echo "Core Tools Status:"
+    echo "$(msg ENVCHECK_CORE_TOOLS)"
     for tool in "${REQUIRED_TOOLS[@]}" "${RECOMMENDED_TOOLS[@]}"; do
         if command_exists "$tool"; then
-            printf "  ✅ %-15s : Installed\n" "$tool"
+            printf "  [OK] %-15s : %s\n" "$tool" "$(msg ENVCHECK_INSTALLED)"
         else
-            printf "  ❌ %-15s : Missing\n" "$tool"
+            printf "  [FAIL] %-15s : %s\n" "$tool" "$(msg ENVCHECK_MISSING)"
         fi
     done
     echo "=================================="

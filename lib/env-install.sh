@@ -11,14 +11,14 @@
 
 install_homebrew() {
     if command_exists "brew"; then
-        log_info "Homebrew is already installed. Skipping."
+        log_info "$(msg ENVINSTALL_HOMEBREW_EXISTS)"
         return 0
     fi
-    log_info "Installing Homebrew (this may prompt for your password)..."
+    log_info "$(msg ENVINSTALL_HOMEBREW_INSTALLING)"
     
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     if [ $? -ne 0 ]; then
-        log_error "Failed to install Homebrew."
+        log_error "$(msg ENVINSTALL_HOMEBREW_FAILED)"
         return 1
     fi
 
@@ -27,12 +27,12 @@ install_homebrew() {
     else
         eval "$(/usr/local/bin/brew shellenv)"
     fi
-    log_success "Homebrew installed and configured successfully."
+    log_success "$(msg ENVINSTALL_HOMEBREW_OK)"
     return 0
 }
 
 install_basic_tools() {
-    log_info "Checking basic command-line tools..."
+    log_info "$(msg ENVINSTALL_BASIC_CHECK)"
     local tools_to_install=""
     
     for tool in git curl wget; do
@@ -42,60 +42,60 @@ install_basic_tools() {
     done
 
     if [ -z "$tools_to_install" ]; then
-        log_info "All basic tools are already installed."
+        log_info "$(msg ENVINSTALL_BASIC_OK_EXISTS)"
         return 0
     fi
 
-    log_info "Installing missing tools:$tools_to_install ..."
+    log_info "$(msgf ENVINSTALL_BASIC_INSTALLING "$tools_to_install")"
     brew install $tools_to_install
     if [ $? -ne 0 ]; then
-        log_error "Failed to install basic tools via Homebrew."
+        log_error "$(msg ENVINSTALL_BASIC_FAILED)"
         return 1
     fi
-    log_success "Basic tools installed successfully."
+    log_success "$(msg ENVINSTALL_BASIC_OK)"
     return 0
 }
 
 install_runtime_envs() {
-    log_info "Checking runtime environments (Python, Node.js)..."
+    log_info "$(msg ENVINSTALL_RUNTIME_CHECK)"
     
     if ! command_exists "python3"; then
-        log_info "Installing Python 3..."
+        log_info "$(msg ENVINSTALL_PYTHON_INSTALLING)"
         brew install python@3.11
         if [ $? -ne 0 ]; then
-            log_error "Failed to install Python 3."
+            log_error "$(msg ENVINSTALL_PYTHON_FAILED)"
             return 1
         fi
     else
-        log_info "Python 3 is already installed."
+        log_info "$(msg ENVINSTALL_PYTHON_EXISTS)"
     fi
 
     if ! command_exists "node"; then
-        log_info "Installing Node.js (LTS)..."
+        log_info "$(msg ENVINSTALL_NODE_INSTALLING)"
         brew install node
         if [ $? -ne 0 ]; then
-            log_error "Failed to install Node.js."
+            log_error "$(msg ENVINSTALL_NODE_FAILED)"
             return 1
         fi
     else
-        log_info "Node.js is already installed."
+        log_info "$(msg ENVINSTALL_NODE_EXISTS)"
     fi
-    log_success "Runtime environments are ready."
+    log_success "$(msg ENVINSTALL_RUNTIME_OK)"
     return 0
 }
 
 install_ai_tools() {
-    log_info "Checking AI core tools..."
+    log_info "$(msg ENVINSTALL_AI_CHECK)"
     if ! command_exists "ollama"; then
-        log_info "Installing Ollama (required for local LLM execution)..."
+        log_info "$(msg ENVINSTALL_OLLAMA_INSTALLING)"
         curl -fsSL https://ollama.com/install.sh | sh
         if [ $? -ne 0 ]; then
-            log_error "Failed to install Ollama."
+            log_error "$(msg ENVINSTALL_OLLAMA_FAILED)"
             return 1
         fi
-        log_success "Ollama installed successfully."
+        log_success "$(msg ENVINSTALL_OLLAMA_OK)"
     else
-        log_info "Ollama is already installed."
+        log_info "$(msg ENVINSTALL_OLLAMA_EXISTS)"
     fi
     return 0
 }
@@ -106,8 +106,8 @@ install_ai_tools() {
 
 install_all_dependencies() {
     print_separator
-    log_info "Starting AI Studio Environment Installation..."
-    log_warn "This process may require your administrator password."
+    log_info "$(msg ENVINSTALL_START)"
+    log_warn "$(msg ENVINSTALL_NEED_PASSWORD)"
     print_separator
 
     local failed_steps=0
@@ -126,11 +126,11 @@ install_all_dependencies() {
 
     print_separator
     if [ "$failed_steps" -eq 0 ]; then
-        log_success "Environment installation completed successfully!"
-        log_info "Your system is now fully prepared for AI Studio."
+        log_success "$(msg ENVINSTALL_DONE)"
+        log_info "$(msg ENVINSTALL_READY)"
         return 0
     else
-        log_error "Environment installation encountered $failed_steps error(s)."
+        log_error "$(msgf ENVINSTALL_FAILED_N "$failed_steps")"
         return 1
     fi
 }
@@ -144,7 +144,7 @@ install_component_deps() {
     shift
     local missing_deps=""
 
-    log_info "Checking dependencies for $component..."
+    log_info "$(msgf ENVINSTALL_DEPS_CHECK "$component")"
 
     for dep in "$@"; do
         if ! command_exists "$dep"; then
@@ -153,17 +153,17 @@ install_component_deps() {
     done
 
     if [ -z "$missing_deps" ]; then
-        log_info "All dependencies for $component are already installed."
+        log_info "$(msgf ENVINSTALL_DEPS_OK_EXISTS "$component")"
         return 0
     fi
 
-    log_info "Installing missing dependencies for $component:$missing_deps ..."
+    log_info "$(msgf ENVINSTALL_DEPS_INSTALLING "$component" "$missing_deps")"
     brew install $missing_deps
     if [ $? -ne 0 ]; then
-        log_error "Failed to install dependencies for $component."
+        log_error "$(msgf ENVINSTALL_DEPS_FAILED "$component")"
         return 1
     fi
 
-    log_success "Dependencies for $component installed successfully."
+    log_success "$(msgf ENVINSTALL_DEPS_OK "$component")"
     return 0
 }

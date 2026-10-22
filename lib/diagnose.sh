@@ -27,16 +27,16 @@ _check_installation() {
     local comp_dir="${AI_STUDIO_ROOT}/components/${component}"
     
     if [[ ! -d "$comp_dir" ]]; then
-        echo "CRITICAL: Component directory missing."
+        echo "$(msg LIBDIAG_FILES_MISSING)"
         return $DIAGNOSIS_ISSUES_FOUND
     fi
     
     if [[ ! -f "$comp_dir/install.sh" ]] || [[ ! -x "$comp_dir/install.sh" ]]; then
-        echo "WARNING: Installation scripts missing or not executable."
+        echo "$(msg LIBDIAG_SCRIPTS_MISSING)"
         return $DIAGNOSIS_ISSUES_FOUND
     fi
     
-    echo "OK: Component files present."
+    echo "$(msg LIBDIAG_FILES_OK)"
     return $DIAGNOSIS_ALL_CLEAR
 }
 
@@ -48,22 +48,22 @@ _check_process_status() {
     if is_daemon_running "$component"; then
         local info=$(get_daemon_info "$component")
         if [[ "$info" == "zombie_or_orphaned" ]]; then
-            echo "WARNING: Process is running but appears orphaned/zombie."
+            echo "$(msg LIBDIAG_PROC_ORPHAN)"
             return $DIAGNOSIS_ISSUES_FOUND
         fi
-        echo "OK: Process is running."
+        echo "$(msg LIBDIAG_PROC_OK)"
         
         # Check port if applicable
         if [[ -n "$port" ]] && ! is_port_in_use "$port"; then
-            echo "WARNING: Process running, but port $port is not listening."
+            echo "$(msgf LIBDIAG_PROC_PORT "$port")"
             return $DIAGNOSIS_ISSUES_FOUND
         fi
     else
         if [[ -n "$port" ]] && is_port_in_use "$port"; then
-            echo "WARNING: Component is stopped, but port $port is occupied by another process."
+            echo "$(msgf LIBDIAG_STOPPED_PORT_BUSY "$port")"
             return $DIAGNOSIS_ISSUES_FOUND
         fi
-        echo "INFO: Component is currently stopped."
+        echo "$(msg LIBDIAG_STOPPED)"
     fi
     return $DIAGNOSIS_ALL_CLEAR
 }
@@ -74,7 +74,7 @@ _check_recent_logs() {
     local log_file="${AI_STUDIO_ROOT}/logs/${component}.log"
     
     if [[ ! -f "$log_file" ]]; then
-        echo "INFO: No log file found yet."
+        echo "$(msg LIBDIAG_NO_LOG)"
         return $DIAGNOSIS_ALL_CLEAR
     fi
     
@@ -83,12 +83,12 @@ _check_recent_logs() {
     errors=$(tail -n 50 "$log_file" | grep -iE "error|exception|fatal|traceback" | tail -n 3)
     
     if [[ -n "$errors" ]]; then
-        echo "WARNING: Recent log contains potential errors:"
+        echo "$(msg LIBDIAG_LOG_ERRORS)"
         echo "$errors" | sed 's/^/  -> /'
         return $DIAGNOSIS_ISSUES_FOUND
     fi
     
-    echo "OK: No critical errors in recent logs."
+    echo "$(msg LIBDIAG_LOG_OK)"
     return $DIAGNOSIS_ALL_CLEAR
 }
 
@@ -100,7 +100,7 @@ _check_system_resources() {
     # Disk Space
     local avail_gb=$(df -g / | awk 'NR==2 {print $4}' | tr -dc '0-9')
     if [[ "$avail_gb" -lt 20 ]]; then
-        echo "CRITICAL: Less than 20GB disk space remaining. Model downloads/operations may fail."
+        echo "$(msg LIBDIAG_DISK_LOW)"
         ((issues++))
     fi
     
@@ -110,12 +110,12 @@ _check_system_resources() {
     # A more robust check uses `sysctl vm.swapusage` or `memory_pressure`
     local swap_usage=$(sysctl vm.swapusage 2>/dev/null | awk '{print $4}' | tr -d 'M')
     if [[ "${swap_usage:-0}" -gt 2048 ]]; then # > 2GB swap used
-        echo "WARNING: High swap memory usage detected. System may be thrashing."
+        echo "$(msg LIBDIAG_SWAP_HIGH)"
         ((issues++))
     fi
     
     if [[ $issues -eq 0 ]]; then
-        echo "OK: System resources are adequate."
+        echo "$(msg LIBDIAG_RESOURCES_OK)"
     fi
     return $issues
 }
@@ -133,7 +133,7 @@ _check_dependencies() {
         if [[ -n "${REQUIRED_DEPS:-}" ]]; then
             for dep in $REQUIRED_DEPS; do
                 if ! command_exists "$dep"; then
-                    echo "CRITICAL: Missing required dependency: $dep"
+                    echo "$(msgf LIBDIAG_DEP_MISSING "$dep")"
                     ((issues++))
                 fi
             done
@@ -141,7 +141,7 @@ _check_dependencies() {
     fi
     
     if [[ $issues -eq 0 ]]; then
-        echo "OK: All declared dependencies are satisfied."
+        echo "$(msg LIBDIAG_DEP_OK)"
     fi
     return $issues
 }
@@ -156,7 +156,7 @@ run_simple_diagnosis() {
     local component="$1"
     local total_issues=0
     
-    log_info "Running simple diagnosis for ${COLOR_CYAN}${component}${COLOR_RESET}..."
+    log_info "$(msgf LIBDIAG_SIMPLE_RUNNING "${COLOR_CYAN}${component}${COLOR_RESET}")"
     
     local result
     result=$(_check_installation "$component")
@@ -180,7 +180,7 @@ run_deep_diagnosis() {
     local component="$1"
     local total_issues=0
     
-    log_info "Running deep diagnosis for ${COLOR_CYAN}${component}${COLOR_RESET}..."
+    log_info "$(msgf LIBDIAG_DEEP_RUNNING "${COLOR_CYAN}${component}${COLOR_RESET}")"
     
     # Run simple checks first
     run_simple_diagnosis "$component"
@@ -200,9 +200,9 @@ run_deep_diagnosis() {
     local conf_file="${AI_STUDIO_ROOT}/config/${component}.conf"
     if [[ -f "$conf_file" ]]; then
         if grep -qE '^[a-zA-Z_][a-zA-Z0-9_]*=' "$conf_file"; then
-            echo -e "  [${COLOR_BLUE}CONFIG${COLOR_RESET}] OK: Configuration file syntax appears valid."
+            echo -e "  [${COLOR_BLUE}CONFIG${COLOR_RESET}] $(msg LIBDIAG_CONFIG_OK)"
         else
-            echo -e "  [${COLOR_BLUE}CONFIG${COLOR_RESET}] WARNING: Configuration file may be malformed."
+            echo -e "  [${COLOR_BLUE}CONFIG${COLOR_RESET}] $(msg LIBDIAG_CONFIG_WARN)"
             ((total_issues++))
         fi
     fi
@@ -220,14 +220,14 @@ attempt_auto_fix() {
     local component="$1"
     local fixed=0
     
-    log_warn "Attempting automatic repairs for ${COLOR_CYAN}${component}${COLOR_RESET}..."
+    log_warn "$(msgf LIBDIAG_AUTOFIX "${COLOR_CYAN}${component}${COLOR_RESET}")"
     
     # Fix 1: Clean stale PIDs
     local pid_file="${AI_STUDIO_ROOT}/run/pids/${component}.pid"
     if [[ -f "$pid_file" ]]; then
         local pid=$(cat "$pid_file")
         if ! _is_pid_alive "$pid"; then
-            log_info "  -> Clearing stale PID file for $component..."
+            log_info "  $(msgf LIBDIAG_FIX_PID "$component")"
             _clear_pid "$component"
             ((fixed++))
         fi
@@ -238,7 +238,7 @@ attempt_auto_fix() {
     if [[ -d "$comp_dir" ]]; then
         local unexecuted=$(find "$comp_dir" -name "*.sh" ! -executable 2>/dev/null)
         if [[ -n "$unexecuted" ]]; then
-            log_info "  -> Restoring execution permissions for component scripts..."
+            log_info "  $(msg LIBDIAG_FIX_PERMS2)"
             chmod +x "$comp_dir"/*.sh
             ((fixed++))
         fi
@@ -247,16 +247,16 @@ attempt_auto_fix() {
     # Fix 3: Port conflict resolution (if component is supposed to be stopped but port is busy)
     local port=$(get_component_port "$component")
     if [[ -n "$port" ]] && ! is_daemon_running "$component" && is_port_in_use "$port"; then
-        log_info "  -> Port $port is occupied. Attempting to free it..."
+        log_info "  $(msgf LIBDIAG_FIX_PORT "$port")"
         if kill_process_on_port "$port"; then
             ((fixed++))
         fi
     fi
     
     if [[ $fixed -gt 0 ]]; then
-        log_success "Applied $fixed automatic fix(es). Please run diagnosis again to verify."
+        log_success "$(msgf LIBDIAG_FIX_APPLIED "$fixed")"
     else
-        log_info "No automatic fixes were applicable or necessary."
+        log_info "$(msg LIBDIAG_FIX_NONE)"
     fi
     
     return 0
@@ -279,7 +279,7 @@ execute_diagnosis() {
         case "$1" in
             --deep) is_deep=true; shift ;;
             --fix) do_fix=true; shift ;;
-            *) log_error "Unknown diagnosis flag: $1"; return 1 ;;
+            *) log_error "$(msgf LIBDIAG_UNKNOWN_FLAG "$1")"; return 1 ;;
         esac
     done
     
@@ -294,15 +294,15 @@ execute_diagnosis() {
     fi
     
     if [[ $issues -gt 0 ]]; then
-        log_warn "Diagnosis completed with $issues issue(s) detected."
+        log_warn "$(msgf LIBDIAG_ISSUES "$issues")"
         if [[ "$do_fix" == true ]]; then
             echo ""
             attempt_auto_fix "$component"
         else
-            log_info "Tip: Run with '--deep --fix' to attempt automatic resolution."
+            log_info "$(msg LIBDIAG_TIP_DEEP_FIX)"
         fi
     else
-        log_success "Diagnosis completed. No issues detected. ${component} is healthy."
+        log_success "$(msgf LIBDIAG_HEALTHY "$component")"
     fi
     
     print_separator

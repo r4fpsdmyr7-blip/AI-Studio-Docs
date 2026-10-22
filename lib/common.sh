@@ -11,6 +11,18 @@
 set -u
 
 # ============================================================================
+# 0. UI message layer (i18n)
+#    Any script sourcing this file automatically gets msg / msgf;
+#    no per-file sourcing of lang.sh is needed.
+#    lib/lang.sh is idempotency-guarded, so repeated sourcing is safe.
+# ============================================================================
+_AI_STUDIO_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$_AI_STUDIO_LIB_DIR/lang.sh" ]]; then
+    source "$_AI_STUDIO_LIB_DIR/lang.sh"
+fi
+unset _AI_STUDIO_LIB_DIR
+
+# ============================================================================
 # 1. Color Definitions (ANSI Escape Codes)
 # ============================================================================
 readonly COLOR_RESET="\033[0m"
@@ -92,16 +104,16 @@ wait_for_port() {
     local timeout=${2:-15} # Default timeout: 15 seconds
     local elapsed=0
 
-    log_info "Waiting for service on port $port to be ready (timeout: ${timeout}s)..."
+    log_info "$(msgf LIB_WAIT_PORT "$port" "$timeout")"
     while ! is_port_in_use "$port"; do
         if [[ $elapsed -ge $timeout ]]; then
-            log_warn "Timeout waiting for port $port to open."
+            log_warn "$(msgf LIB_TIMEOUT_PORT "$port")"
             return 1
         fi
         sleep 1
         ((elapsed++))
     done
-    log_success "Service on port $port is ready."
+    log_success "$(msgf LIB_PORT_READY "$port")"
     return 0
 }
 
@@ -109,8 +121,8 @@ wait_for_port() {
 # Usage: require_sudo "$0" "$@"
 require_sudo() {
     if [[ $EUID -ne 0 ]]; then
-        log_error "This operation requires administrator privileges."
-        log_info "Please run with sudo: sudo $*"
+        log_error "$(msg LIB_NEED_SUDO)"
+        log_info "$(msgf LIB_SUDO_HINT "$*")"
         exit 1
     fi
 }
@@ -121,7 +133,7 @@ ensure_dir() {
     local dir="$1"
     if [[ ! -d "$dir" ]]; then
         mkdir -p "$dir"
-        log_debug "Created directory: $dir"
+        log_debug "$(msgf LIB_DIR_CREATED "$dir")"
     fi
 }
 
@@ -130,23 +142,42 @@ print_separator() {
     echo -e "${COLOR_GRAY}================================================================================${COLOR_RESET}"
 }
 
+# Pad a string to a fixed *display* width, then print it without a newline.
+# Bash `printf "%-25s"` pads by BYTES, while CJK characters take 3 bytes /
+# 2 display columns, so CJK labels would be visibly misaligned.
+# Display width is computed as: char count + extra bytes / 2.
+# Usage: printf "%s : %s\n" "$(pad_display "Label" 25)" "value"
+pad_display() {
+    local text="$1"
+    local width="$2"
+    local chars bytes extra pad
+    chars=${#text}
+    bytes=$(LC_ALL=C printf '%s' "$text" | wc -c | tr -d '[:space:]')
+    extra=$((bytes - chars))
+    pad=$((width - chars - extra / 2))
+    if [[ $pad -lt 0 ]]; then
+        pad=0
+    fi
+    printf '%s%*s' "$text" "$pad" ''
+}
+
 # ============================================================================
 # 4. Initialization (Optional but recommended)
 # ============================================================================
 # Verify that this library is running on a supported OS
 check_platform_compatibility() {
     if ! is_macos; then
-        log_error "AI Studio is currently optimized for macOS."
-        log_info "Detected OS: $OSTYPE"
+        log_error "$(msg LIB_MACOS_OPTIMIZED)"
+        log_info "$(msgf LIB_DETECTED_OS "$OSTYPE")"
         
         case "$OSTYPE" in
             linux*)
-                log_warn "Linux support is experimental. Some features may not work."
-                log_info "Apple Silicon-specific components (MLX, MLX-Video) will be disabled."
-                return 0  # 允许继续但警告
+                log_warn "$(msg LIB_LINUX_EXPERIMENTAL)"
+                log_info "$(msg LIB_APPLE_SILICON_DISABLED)"
+                return 0  # continue with a warning
                 ;;
             *)
-                log_error "Unsupported platform. Please use macOS 13+ for full functionality."
+                log_error "$(msg LIB_UNSUPPORTED_PLATFORM)"
                 return 1
                 ;;
         esac

@@ -5,7 +5,7 @@
 # Manages global and component-specific configurations.
 # 
 # CRITICAL FIX: Fully compatible with macOS default Bash 3.2.
-# Removed associative arrays (declare -A) and Bash 4.0+ syntax (${var,,})
+# Removed associative arrays (declare -A) and Bash 4.0+ case-conversion syntax
 # to prevent "unbound variable" errors under 'set -u'.
 # ============================================================================
 
@@ -105,19 +105,23 @@ set_config() {
 
     # Validate key (alphanumeric and underscores only)
     if [[ ! "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
-        echo "Error: Invalid configuration key: $key" >&2
+        echo "$(msgf CONFIG_INVALID_KEY "$key")" >&2
         return 1
     fi
 
     # Escape double quotes in value for safe storage
     local escaped_value="${value//\"/\\\"}"
 
+    # 注意：不要写 `sed -i '' script file`。BSD sed 会把紧跟的空后缀参数吃掉，
+    # 进而把脚本当成文件名，报 "No such file or directory" 且不修改文件。
+    # 统一用「临时文件 + mv」，跨平台可靠且不产生 .bak 残留。
+    local tmp_file="${config_file}.tmp.$$"
     if grep -qE "^${key}=" "$config_file" 2>/dev/null; then
-        # macOS (BSD) sed requires an empty string for -i ''
-        sed -i '' "s|^${key}=.*|${key}=\"${escaped_value}\"|" "$config_file"
+        sed "s|^${key}=.*|${key}=\"${escaped_value}\"|" "$config_file" > "$tmp_file" && mv "$tmp_file" "$config_file"
     else
         echo "${key}=\"${escaped_value}\"" >> "$config_file"
     fi
+    rm -f "$tmp_file" 2>/dev/null || true
 }
 
 delete_config() {
@@ -132,7 +136,10 @@ delete_config() {
     fi
 
     if [[ -f "$config_file" ]]; then
-        sed -i '' "/^${key}=/d" "$config_file"
+        # 同上：不用 `sed -i ''`，改用临时文件 + mv
+        local tmp_file="${config_file}.tmp.$$"
+        sed "/^${key}=/d" "$config_file" > "$tmp_file" && mv "$tmp_file" "$config_file"
+        rm -f "$tmp_file" 2>/dev/null || true
     fi
 }
 
@@ -147,7 +154,7 @@ is_config_true() {
     value=$(get_config "$key" "$target")
     
     # Convert to lowercase for comparison (Bash 3.2 compatible using 'tr')
-    # DO NOT use ${value,,} as it requires Bash 4.0+
+    # DO NOT use parameter-expansion case conversion as it requires Bash 4.0+
     local lower_value
     lower_value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
     

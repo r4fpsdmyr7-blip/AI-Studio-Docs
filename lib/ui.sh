@@ -69,9 +69,15 @@ confirm_action() {
     local prompt="$1"
     local default="${2:-N}" # Default to 'N' for safety on destructive actions
     local response
-    
+    local default_upper
+
+    # Convert to uppercase (Bash 3.2 compatible)
+    # NOTE: Do NOT use parameter-expansion case conversion here — it requires
+    # Bash 4.0+ and breaks on the macOS default shell (Bash 3.2). Use 'tr'.
+    default_upper=$(echo "$default" | tr '[:lower:]' '[:upper:]')
+
     # Format prompt based on default
-    if [[ "${default^^}" == "Y" ]]; then
+    if [[ "$default_upper" == "Y" ]]; then
         prompt="${prompt} [Y/n]: "
     else
         prompt="${prompt} [y/N]: "
@@ -82,7 +88,8 @@ confirm_action() {
     
     # Normalize response
     response="${response:-$default}"
-    response="${response^^}" # Convert to uppercase
+    # Convert to uppercase (Bash 3.2 compatible, same reason as above)
+    response=$(echo "$response" | tr '[:lower:]' '[:upper:]')
     
     if [[ "$response" == "Y" || "$response" == "YES" ]]; then
         return 0
@@ -118,7 +125,7 @@ user_input() {
                 echo "$input"
                 return 0
             else
-                log_error "Invalid input. Please match the required format."
+                log_error "$(msg UI_INVALID_INPUT)"
             fi
         else
             echo "$input"
@@ -141,7 +148,7 @@ select_from_list() {
     local count=${#options[@]}
     
     if [[ $count -eq 0 ]]; then
-        log_error "No options provided to select_from_list."
+        log_error "$(msg UI_NO_OPTIONS)"
         return 1
     fi
     
@@ -152,12 +159,12 @@ select_from_list() {
     for ((i=0; i<count; i++)); do
         printf "  %2d) %s\n" "$((i+1))" "${options[$i]}"
     done
-    echo "   0) Cancel"
+    echo "   $(msg UI_CANCEL_OPTION)"
     echo "----------------------------------------"
     
     local choice
     while true; do
-        read -r -p "$(echo -e "${COLOR_CYAN}Enter your choice (0-$count): ${COLOR_RESET}")" choice
+        read -r -p "$(echo -e "${COLOR_CYAN}$(msgf UI_CHOICE_PROMPT "$count")${COLOR_RESET}")" choice
         
         # Validate input is a number
         if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 0 ]] && [[ "$choice" -le "$count" ]]; then
@@ -169,7 +176,7 @@ select_from_list() {
                 return 0
             fi
         else
-            log_error "Invalid selection. Please enter a number between 0 and $count."
+            log_error "$(msgf UI_INVALID_SELECTION "$count")"
         fi
     done
 }
@@ -184,7 +191,7 @@ print_table() {
     local data="$1"
     
     if [[ -z "$data" ]]; then
-        log_warn "No data provided for table."
+        log_warn "$(msg UI_NO_TABLE_DATA)"
         return 0
     fi
     

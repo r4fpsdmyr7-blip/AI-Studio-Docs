@@ -27,8 +27,8 @@ source "$COMPONENT_DIR/metadata.sh"
 
 check_installation() {
     if [[ ! -d "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" ]] || [[ ! -f "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}/bin/python" ]]; then
-        log_error "${COMPONENT_NAME} does not appear to be installed."
-        log_info "Please run './ai-studio.sh install ${COMPONENT_NAME}' first."
+        log_error "$(msgf START_NOT_INSTALLED "$COMPONENT_NAME")"
+        log_info "$(msgf HINT_RUN_INSTALL_FIRST "$COMPONENT_NAME")"
         return 1
     fi
     return 0
@@ -38,8 +38,8 @@ check_already_running() {
     if is_daemon_running "$COMPONENT_NAME"; then
         local pid
         pid=$(_read_pid "$COMPONENT_NAME")
-        log_warn "${COMPONENT_NAME} is already running (PID: $pid)."
-        log_info "Use './ai-studio.sh stop ${COMPONENT_NAME}' to stop it first."
+        log_warn "$(msgf START_ALREADY_RUNNING "$COMPONENT_NAME" "$pid")"
+        log_info "$(msgf HINT_STOP_FIRST "$COMPONENT_NAME")"
         return 1
     fi
     return 0
@@ -51,7 +51,7 @@ check_already_running() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  Starting: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msgf BANNER_START "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -66,7 +66,7 @@ main() {
     
     # Ensure port_offset is a valid number
     if ! [[ "$port_offset" =~ ^-?[0-9]+$ ]]; then
-        log_warn "Invalid DEFAULT_PORT_OFFSET in config. Using 0."
+        log_warn "$(msg START_INVALID_PORT_OFFSET)"
         port_offset=0
     fi
 
@@ -74,8 +74,8 @@ main() {
     
     # Check if the calculated port is already in use by another application
     if is_port_in_use "$final_port"; then
-        log_error "Port ${final_port} is already in use by another application."
-        log_info "Please change the DEFAULT_PORT_OFFSET in config/ai-studio.conf or free up the port."
+        log_error "$(msgf START_PORT_IN_USE "$final_port")"
+        log_info "$(msg START_PORT_HINT)"
         exit 1
     fi
 
@@ -97,9 +97,9 @@ main() {
     )
 
     # Step 5: Start as daemon
-    log_info "Launching ${COMPONENT_NAME} on port ${final_port}..."
+    log_info "$(msgf START_LAUNCHING "$final_port" "$COMPONENT_NAME")"
     if ! start_daemon "$COMPONENT_NAME" "${start_cmd[@]}"; then
-        log_error "Failed to start ${COMPONENT_NAME} daemon."
+        log_error "$(msgf START_FAILED_DAEMON "$COMPONENT_NAME")"
         exit 1
     fi
 
@@ -112,17 +112,17 @@ main() {
     if open_browser_when_ready "$url" "$final_port" 20; then
         echo ""
         print_separator
-        log_success "${COMPONENT_NAME} is running successfully!"
-        log_info "You can access it at: ${COLOR_CYAN}${url}${COLOR_RESET}"
-        log_info "To stop the service, run: ./ai-studio.sh stop ${COMPONENT_NAME}"
+        log_success "$(msgf START_SUCCESS_COMPONENT "$COMPONENT_NAME")"
+        log_info "$(msg START_ACCESS_URL) ${COLOR_CYAN}${url}${COLOR_RESET}"
+        log_info "$(msgf START_HINT_STOP "$COMPONENT_NAME")"
         print_separator
         exit 0
     else
         echo ""
         print_separator
-        log_error "${COMPONENT_NAME} started but failed to become ready on port ${final_port}."
-        log_info "Please check the logs for details:"
-        log_info "  ${COLOR_GRAY}${AI_STUDIO_ROOT}/logs/${COMPONENT_NAME}.log${COLOR_RESET}"
+        log_error "$(msgf START_NOT_READY "$COMPONENT_NAME" "$final_port")"
+        log_info "$(msg START_CHECK_LOGS)"
+        log_info "${COLOR_GRAY}$(msgf START_LOG_PATH "$AI_STUDIO_ROOT" "$COMPONENT_NAME")${COLOR_RESET}"
         print_separator
         exit 1
     fi

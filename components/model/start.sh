@@ -29,7 +29,7 @@ source "$COMPONENT_DIR/metadata.sh"
 # Check if the model directory exists and contains data
 check_models_exist() {
     if [[ ! -d "$COMPONENT_DATA_DIR" ]]; then
-        log_error "Model directory does not exist: ${COMPONENT_DATA_DIR}"
+        log_error "$(msgf MODEL_START_NO_DIR "$COMPONENT_DATA_DIR")"
         return 1
     fi
 
@@ -38,7 +38,7 @@ check_models_exist() {
     file_count=$(find "$COMPONENT_DATA_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
     
     if [[ "$file_count" -eq 0 ]]; then
-        log_error "Model directory is empty. No models have been downloaded yet."
+        log_error "$(msg MODEL_START_EMPTY)"
         return 1
     fi
     
@@ -48,9 +48,9 @@ check_models_exist() {
 # List downloaded models with their sizes and status
 list_downloaded_models() {
     echo ""
-    echo -e "${COLOR_BOLD}Downloaded MLX Models:${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}$(msg MODEL_START_LIST_TITLE)${COLOR_RESET}"
     echo "--------------------------------------------------------------------------------"
-    printf "  %-35s | %-10s | %s\n" "MODEL NAME" "SIZE" "STATUS"
+    printf "  %-35s | %-10s | %s\n" "$(msg MODEL_TBL_NAME)" "$(msg MODEL_TBL_SIZE)" "$(msg MODEL_TBL_STATUS)"
     echo "--------------------------------------------------------------------------------"
 
     local has_models=false
@@ -68,16 +68,16 @@ list_downloaded_models() {
         size=$(du -sh "$model_dir" 2>/dev/null | awk '{print $1}')
         
         # Basic integrity check: look for config.json or .safetensors
-        local status="${COLOR_GREEN}Ready${COLOR_RESET}"
+        local status="${COLOR_GREEN}$(msg MODEL_STATUS_READY)${COLOR_RESET}"
         if [[ ! -f "${model_dir}config.json" ]] && [[ -z "$(ls -A "${model_dir}"/*.safetensors 2>/dev/null)" ]]; then
-            status="${COLOR_YELLOW}Incomplete/Verifying${COLOR_RESET}"
+            status="${COLOR_YELLOW}$(msg MODEL_STATUS_INCOMPLETE_2)${COLOR_RESET}"
         fi
         
         printf "  %-35s | %-10s | %b\n" "$model_name" "$size" "$status"
     done
 
     if [[ "$has_models" == false ]]; then
-        echo "  ${COLOR_GRAY}(No models found. Run './ai-studio.sh install model' to download.)${COLOR_RESET}"
+        echo "  ${COLOR_GRAY}$(msg MODEL_START_NO_MODELS)${COLOR_RESET}"
     fi
     echo "--------------------------------------------------------------------------------"
     echo ""
@@ -85,32 +85,32 @@ list_downloaded_models() {
 
 # Provide actionable next steps based on available models
 provide_usage_guide() {
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}💡 How to use these models:${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}$(msg MODEL_START_TIP_TITLE)${COLOR_RESET}"
     echo ""
-    echo "  Models are static assets and do not need to be 'started'. Instead, they are"
-    echo "  loaded by compatible inference engines or UI components."
+    echo "  $(msg MODEL_START_STATIC_1)"
+    echo "  $(msg MODEL_START_STATIC_2)"
     echo ""
     
     # Check for specific model types and provide tailored advice
     if [[ -d "${COMPONENT_DATA_DIR}/qwen3-35b-uncensored" ]] || [[ -d "${COMPONENT_DATA_DIR}"/*qwen* ]]; then
-        echo -e "  🧠 ${COLOR_BOLD}For LLMs (e.g., Qwen3):${COLOR_RESET}"
-        echo "    The recommended way to run MLX LLMs is via Ollama or a dedicated MLX-LM script."
-        echo "    1. Ensure Ollama is running: ${COLOR_GRAY}./ai-studio.sh start qwen3${COLOR_RESET}"
-        echo "    2. Or use a Python script pointing to: ${COLOR_GRAY}${COMPONENT_DATA_DIR}/qwen3-35b-uncensored${COLOR_RESET}"
+        echo -e "  - ${COLOR_BOLD}$(msg MODEL_START_LLM_TITLE)${COLOR_RESET}"
+        echo "    $(msg MODEL_START_LLM_DESC)"
+        echo "    $(msgf MODEL_START_LLM_STEP1 "${COLOR_GRAY}./ai-studio.sh start qwen3${COLOR_RESET}")"
+        echo "    $(msgf MODEL_START_LLM_STEP2 "${COLOR_GRAY}${COMPONENT_DATA_DIR}/qwen3-35b-uncensored${COLOR_RESET}")"
         echo ""
     fi
 
     if [[ -d "${COMPONENT_DATA_DIR}/stable-diffusion"* ]] || [[ -d "${COMPONENT_DATA_DIR}/flux"* ]]; then
-        echo -e "  🎨 ${COLOR_BOLD}For Image Generation (SD / FLUX):${COLOR_RESET}"
-        echo "    1. Start ComfyUI: ${COLOR_GRAY}./ai-studio.sh start comfyui${COLOR_RESET}"
-        echo "    2. In ComfyUI, ensure your 'extra_model_paths.yaml' includes:"
+        echo -e "  - ${COLOR_BOLD}$(msg MODEL_START_IMG_TITLE)${COLOR_RESET}"
+        echo "    $(msgf MODEL_START_IMG_STEP1 "${COLOR_GRAY}./ai-studio.sh start comfyui${COLOR_RESET}")"
+        echo "    $(msg MODEL_START_IMG_STEP2)"
         echo "       ${COLOR_GRAY}${COMPONENT_DATA_DIR}${COLOR_RESET}"
-        echo "    3. Alternatively, use MLX-Video/MLX image generation scripts directly."
+        echo "    $(msg MODEL_START_IMG_STEP3)"
         echo ""
     fi
 
-    echo -e "  📂 ${COLOR_BOLD}Global Model Path:${COLOR_RESET}"
-    echo "    You can manually copy or symlink this directory to other applications:"
+    echo -e "  - ${COLOR_BOLD}$(msg MODEL_START_GLOBAL_TITLE)${COLOR_RESET}"
+    echo "    $(msg MODEL_START_GLOBAL_DESC)"
     echo "    ${COLOR_GRAY}${COMPONENT_DATA_DIR}${COLOR_RESET}"
     echo ""
 }
@@ -121,7 +121,7 @@ provide_usage_guide() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  Verifying: ${COMPONENT_NAME} (MLX Model Repository)${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msgf BANNER_VERIFY "$COMPONENT_NAME") $(msg MODEL_REPO_SUFFIX)${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -129,8 +129,8 @@ main() {
     if ! check_models_exist; then
         echo ""
         print_separator
-        log_error "No models are currently installed."
-        log_info "To download Qwen3, Stable Diffusion, or FLUX MLX models, run:"
+        log_error "$(msg MODEL_START_NONE_INSTALLED)"
+        log_info "$(msg MODEL_START_DOWNLOAD_HINT)"
         log_info "  ${COLOR_CYAN}./ai-studio.sh install model${COLOR_RESET}"
         print_separator
         exit 1
@@ -143,12 +143,12 @@ main() {
     provide_usage_guide
 
     print_separator
-    log_success "Model repository verification complete."
+    log_success "$(msg MODEL_START_VERIFY_OK)"
     echo ""
-    echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-    echo "  • Update models:   ${COLOR_GRAY}./ai-studio.sh update model --target models${COLOR_RESET}"
-    echo "  • Check integrity: ${COLOR_GRAY}./ai-studio.sh diagnose model --deep${COLOR_RESET}"
-    echo "  • Free up space:   ${COLOR_GRAY}./ai-studio.sh uninstall model --keep-data${COLOR_RESET} (then manually delete specific model folders)"
+    echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+    echo "  $(msg MODEL_START_ACTION_UPDATE)   ${COLOR_GRAY}./ai-studio.sh update model --target models${COLOR_RESET}"
+    echo "  $(msg MODEL_START_ACTION_INTEGRITY) ${COLOR_GRAY}./ai-studio.sh diagnose model --deep${COLOR_RESET}"
+    echo "  $(msg MODEL_START_ACTION_FREE)   ${COLOR_GRAY}./ai-studio.sh uninstall model --keep-data${COLOR_RESET} $(msg MODEL_START_ACTION_FREE_NOTE)"
     echo ""
     print_separator
     

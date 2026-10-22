@@ -31,18 +31,18 @@ check_venv_integrity() {
     local venv_pip="${COMPONENT_DIR}/${COMPONENT_VENV_DIR}/bin/pip"
     
     if [[ ! -x "$venv_python" ]] || [[ ! -x "$venv_pip" ]]; then
-        echo "CRITICAL: Python virtual environment is missing or corrupted."
-        echo "  -> The component may need to be reinstalled."
+        echo "$(msg DIAG_VENV_MISSING)"
+        echo "$(msg DIAG_HINT_REINSTALL)"
         return 1
     fi
     
     # Quick syntax check of the python binary
     if ! "$venv_python" -c "import sys" >/dev/null 2>&1; then
-        echo "CRITICAL: Virtual environment Python binary is broken."
+        echo "$(msg DIAG_VENV_BROKEN)"
         return 1
     fi
     
-    echo "OK: Virtual environment is intact and functional."
+    echo "$(msg DIAG_VENV_OK)"
     return 0
 }
 
@@ -51,16 +51,16 @@ check_data_directory() {
     local data_dir="${COMPONENT_DIR}/${COMPONENT_DATA_DIR}"
     
     if [[ ! -d "$data_dir" ]]; then
-        echo "WARNING: Data directory does not exist. It will be created on first start."
+        echo "$(msg DIAG_DATA_DIR_MISSING)"
         return 0
     fi
     
     if [[ ! -w "$data_dir" ]]; then
-        echo "CRITICAL: Data directory exists but is not writable. Database saves will fail."
+        echo "$(msg DIAG_DATA_DIR_NOT_WRITABLE)"
         return 1
     fi
     
-    echo "OK: Data directory is present and writable."
+    echo "$(msg DIAG_DATA_DIR_OK)"
     return 0
 }
 
@@ -69,8 +69,8 @@ check_ollama_hint() {
     # If the component is running, check if it can reach the default Ollama port
     if is_daemon_running "$COMPONENT_NAME"; then
         if ! curl -s --max-time 2 http://localhost:11434/api/tags >/dev/null 2>&1; then
-            echo "INFO: Cannot reach local Ollama instance at port 11434."
-            echo "  -> If you intend to use local models, ensure Ollama is running: ./ai-studio.sh start qwen3"
+            echo "$(msg DIAG_OLLAMA_UNREACHABLE)"
+            echo "$(msg DIAG_OLLAMA_HINT)"
         fi
     fi
     return 0 # This is informational, not a hard failure
@@ -86,22 +86,22 @@ attempt_component_fix() {
     # Fix 1: Repair data directory permissions
     local data_dir="${COMPONENT_DIR}/${COMPONENT_DATA_DIR}"
     if [[ -d "$data_dir" ]] && [[ ! -w "$data_dir" ]]; then
-        log_info "  -> Attempting to fix data directory permissions..."
+        log_info "$(msg DIAG_FIX_PERMS)"
         if chmod -R u+w "$data_dir" 2>/dev/null; then
-            log_success "    Data directory permissions repaired."
+            log_success "$(msg DIAG_FIX_PERMS_OK)"
             ((fixed++))
         else
-            log_error "    Failed to repair permissions. Manual intervention required."
+            log_error "$(msg DIAG_FIX_PERMS_FAILED)"
         fi
     fi
     
     # Fix 2: Stale virtual environment (Soft fix: just notify, hard fix requires reinstall)
     local venv_python="${COMPONENT_DIR}/${COMPONENT_VENV_DIR}/bin/python"
     if [[ -d "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" ]] && [[ ! -x "$venv_python" ]]; then
-        log_warn "  -> Virtual environment is corrupted."
-        log_info "    Auto-fix cannot repair a broken venv. Please run:"
-        log_info "    ./ai-studio.sh uninstall ${COMPONENT_NAME} --keep-data"
-        log_info "    ./ai-studio.sh install ${COMPONENT_NAME}"
+        log_warn "$(msg DIAG_VENV_CORRUPTED)"
+        log_info "$(msg DIAG_VENV_NO_AUTOFIX)"
+        log_info "$(msgf DIAG_CMD_UNINSTALL_KEEP "$COMPONENT_NAME")"
+        log_info "$(msgf DIAG_CMD_INSTALL "$COMPONENT_NAME")"
     fi
     
     return $fixed
@@ -125,7 +125,7 @@ main() {
     done
 
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  Diagnosing: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msgf BANNER_DIAGNOSE "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -136,7 +136,7 @@ main() {
     # Step 2: Run component-specific checks (Only show if generic passed or during deep diagnosis)
     if [[ $generic_issues -eq 0 ]] || [[ "$is_deep" == true ]]; then
         echo ""
-        log_info "Running ${COMPONENT_NAME}-specific checks..."
+        log_info "$(msgf DIAG_SPECIFIC_CHECKS "$COMPONENT_NAME")"
         local specific_issues=0
         
         local result
@@ -163,13 +163,13 @@ main() {
     
     local total_issues=$((generic_issues + specific_issues))
     if [[ $total_issues -gt 0 ]]; then
-        log_warn "Diagnosis completed with $total_issues issue(s) detected for ${COMPONENT_NAME}."
+        log_warn "$(msgf DIAG_ISSUES_FOUND "$COMPONENT_NAME" "$total_issues")"
         if [[ "$do_fix" != true ]]; then
-            log_info "Tip: Run with '--deep --fix' to attempt automatic resolution of fixable issues."
+            log_info "$(msg DIAG_HINT_DEEP_FIX)"
         fi
         exit 1
     else
-        log_success "Diagnosis completed. ${COMPONENT_NAME} is healthy and ready to use."
+        log_success "$(msgf DIAG_HEALTHY "$COMPONENT_NAME")"
         exit 0
     fi
 }

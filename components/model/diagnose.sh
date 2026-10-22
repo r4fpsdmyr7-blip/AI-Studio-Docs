@@ -31,18 +31,18 @@ check_model_directory_access() {
     local data_dir="$COMPONENT_DATA_DIR"
     
     if [[ ! -d "$data_dir" ]]; then
-        echo "CRITICAL: Model directory does not exist."
-        echo "  -> Run './ai-studio.sh install model' to create it and download models."
+        echo "$(msg MODEL_DIAG_DIR_MISSING)"
+        echo "  $(msg MODEL_DIAG_HINT_INSTALL)"
         return 1
     fi
     
     if [[ ! -w "$data_dir" ]]; then
-        echo "CRITICAL: Model directory exists but is not writable."
-        echo "  -> Model downloads and updates will fail."
+        echo "$(msg MODEL_DIAG_DIR_NOT_WRITABLE)"
+        echo "  $(msg MODEL_DIAG_DIR_NOT_WRITABLE_HINT)"
         return 1
     fi
     
-    echo "OK: Model directory is accessible and writable."
+    echo "$(msg MODEL_DIAG_DIR_OK)"
     return 0
 }
 
@@ -75,20 +75,20 @@ check_model_integrity() {
         fi
 
         if [[ "$has_config" == false ]] && [[ "$has_weights" == false ]]; then
-            echo "CRITICAL: Model '${model_name}' appears empty or corrupted."
-            echo "  -> Missing both config.json and weight files (.safetensors/.npz)."
+            echo "$(msgf MODEL_DIAG_MODEL_EMPTY "$model_name")"
+            echo "  $(msg MODEL_DIAG_MODEL_EMPTY_HINT)"
             ((issues++))
         elif [[ "$has_config" == false ]] || [[ "$has_weights" == false ]]; then
-            echo "WARNING: Model '${model_name}' is incomplete."
-            echo "  -> Missing either config.json or weight files. Download may have been interrupted."
+            echo "$(msgf MODEL_DIAG_MODEL_INCOMPLETE "$model_name")"
+            echo "  $(msg MODEL_DIAG_MODEL_INCOMPLETE_HINT)"
             ((issues++))
         fi
     done
     
     if [[ "$has_models" == false ]]; then
-        echo "INFO: No models found in directory. (Not an error, but nothing to verify)."
+        echo "$(msg MODEL_DIAG_NO_MODELS)"
     elif [[ $issues -eq 0 ]]; then
-        echo "OK: All discovered models appear structurally complete."
+        echo "$(msg MODEL_DIAG_ALL_OK)"
     fi
     
     return $issues
@@ -101,20 +101,20 @@ check_model_disk_space() {
     avail_gb=$(df -g "$data_dir" 2>/dev/null | awk 'NR==2 {print $4}' | tr -dc '0-9')
     
     if [[ -z "$avail_gb" ]]; then
-        echo "WARNING: Could not determine available disk space."
+        echo "$(msg MODEL_DIAG_DISK_UNKNOWN)"
         return 0
     fi
     
     if [[ "$avail_gb" -lt 20 ]]; then
-        echo "CRITICAL: Less than 20GB of free space remaining on model partition."
-        echo "  -> Downloading large MLX models (e.g., FLUX, 35B LLMs) will likely fail."
+        echo "$(msg MODEL_DIAG_DISK_CRITICAL)"
+        echo "  $(msg MODEL_DIAG_DISK_CRITICAL_HINT)"
         return 1
     elif [[ "$avail_gb" -lt 50 ]]; then
-        echo "WARNING: Less than 50GB of free space remaining."
-        echo "  -> You may run out of space when downloading additional large models."
+        echo "$(msg MODEL_DIAG_DISK_WARN)"
+        echo "  $(msg MODEL_DIAG_DISK_WARN_HINT)"
         return 0 # Warning, not critical
     else
-        echo "OK: Sufficient disk space available (${avail_gb}GB)."
+        echo "$(msgf MODEL_DIAG_DISK_OK "$avail_gb")"
         return 0
     fi
 }
@@ -124,13 +124,13 @@ check_toolchain_health() {
     local issues=0
     
     if ! command_exists "huggingface-cli"; then
-        echo "CRITICAL: 'huggingface-cli' is not installed or not in PATH."
-        echo "  -> Required for downloading and updating models."
+        echo "$(msg MODEL_DIAG_HF_MISSING)"
+        echo "  $(msg MODEL_DIAG_HF_REQUIRED)"
         ((issues++))
     else
         # Quick version check to ensure it's not a broken symlink
         if ! huggingface-cli version >/dev/null 2>&1; then
-            echo "WARNING: 'huggingface-cli' is present but fails to execute."
+            echo "$(msg MODEL_DIAG_HF_BROKEN)"
             ((issues++))
         fi
     fi
@@ -138,14 +138,14 @@ check_toolchain_health() {
     # hf-transfer is optional but highly recommended
     if command_exists "python3"; then
         if ! python3 -c "import hf_transfer" >/dev/null 2>&1; then
-            echo "WARNING: 'hf-transfer' Python package is missing."
-            echo "  -> Model downloads will be significantly slower. Run './ai-studio.sh install model' to fix."
+            echo "$(msg MODEL_DIAG_HF_TRANSFER_MISSING)"
+            echo "  $(msg MODEL_DIAG_HF_TRANSFER_HINT)"
             # Not a critical failure, but worth noting
         fi
     fi
     
     if [[ $issues -eq 0 ]]; then
-        echo "OK: Model download toolchain is healthy."
+        echo "$(msg MODEL_DIAG_TOOLCHAIN_OK)"
     fi
     
     return $issues
@@ -160,23 +160,23 @@ attempt_model_fix() {
     
     # Fix 1: Repair directory permissions
     if [[ -d "$COMPONENT_DATA_DIR" ]] && [[ ! -w "$COMPONENT_DATA_DIR" ]]; then
-        log_info "  -> Attempting to fix model directory permissions..."
+        log_info "  $(msg MODEL_DIAG_FIX_PERMS)"
         if chmod u+w "$COMPONENT_DATA_DIR" 2>/dev/null; then
-            log_success "    Model directory permissions repaired."
+            log_success "    $(msg MODEL_DIAG_FIX_PERMS_OK)"
             ((fixed++))
         else
-            log_error "    Failed to repair permissions. Manual intervention required."
+            log_error "    $(msg DIAG_FIX_PERMS_FAILED)"
         fi
     fi
     
     # Fix 2: Reinstall missing toolchain dependencies
     if ! command_exists "huggingface-cli" || ! python3 -c "import hf_transfer" >/dev/null 2>&1; then
-        log_info "  -> Attempting to repair model download toolchain..."
+        log_info "  $(msg MODEL_DIAG_FIX_TOOLCHAIN)"
         if install_component_deps "$COMPONENT_NAME" $COMPONENT_REQUIRED_DEPS; then
-            log_success "    Toolchain dependencies repaired."
+            log_success "    $(msg MODEL_DIAG_FIX_TOOLCHAIN_OK)"
             ((fixed++))
         else
-            log_error "    Failed to repair toolchain. Please run './ai-studio.sh install model' manually."
+            log_error "    $(msg MODEL_DIAG_FIX_TOOLCHAIN_FAILED)"
         fi
     fi
     
@@ -204,8 +204,8 @@ main() {
     done
 
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  Diagnosing: ${COMPONENT_NAME} (MLX Model Repository)${COLOR_RESET}"
-    echo -e "${COLOR_GRAY}  Note: Models are static assets and do not run as background services.${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msgf BANNER_DIAGNOSE "$COMPONENT_NAME") $(msg MODEL_REPO_SUFFIX)${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}  $(msg MODEL_DIAG_NOTE_STATIC)${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -213,7 +213,7 @@ main() {
     local result
 
     # --- Component-Specific Checks ---
-    log_info "Running model repository specific checks..."
+    log_info "$(msg MODEL_DIAG_RUNNING_CHECKS)"
     
     result=$(check_model_directory_access)
     echo -e "  [${COLOR_BLUE}DIRECTORY${COLOR_RESET}] $result"
@@ -232,9 +232,9 @@ main() {
         echo -e "  [${COLOR_BLUE}TOOLCHAIN${COLOR_RESET}] $result"
         [[ $? -ne 0 ]] && ((specific_issues++))
     else
-        echo -e "  [${COLOR_BLUE}INTEGRITY${COLOR_RESET}] ${COLOR_GRAY}Skipped (Use --deep to check model file integrity)${COLOR_RESET}"
-        echo -e "  [${COLOR_BLUE}DISK_SPACE${COLOR_RESET}] ${COLOR_GRAY}Skipped (Use --deep to check storage capacity)${COLOR_RESET}"
-        echo -e "  [${COLOR_BLUE}TOOLCHAIN${COLOR_RESET}] ${COLOR_GRAY}Skipped (Use --deep to check download tools)${COLOR_RESET}"
+        echo -e "  [${COLOR_BLUE}INTEGRITY${COLOR_RESET}] ${COLOR_GRAY}$(msg MODEL_DIAG_SKIP_INTEGRITY)${COLOR_RESET}"
+        echo -e "  [${COLOR_BLUE}DISK_SPACE${COLOR_RESET}] ${COLOR_GRAY}$(msg MODEL_DIAG_SKIP_DISK)${COLOR_RESET}"
+        echo -e "  [${COLOR_BLUE}TOOLCHAIN${COLOR_RESET}] ${COLOR_GRAY}$(msg MODEL_DIAG_SKIP_TOOLCHAIN)${COLOR_RESET}"
     fi
 
     # --- Auto-Fix Execution ---
@@ -244,21 +244,21 @@ main() {
         # Re-evaluate after fix (simplified: just report that fix was attempted)
     elif [[ $specific_issues -gt 0 ]] && [[ "$do_fix" != true ]]; then
         echo ""
-        log_info "Tip: Run with '--deep --fix' to attempt automatic resolution of fixable issues (e.g., permissions, missing tools)."
-        log_info "Note: Corrupted model files must be deleted manually or re-downloaded."
+        log_info "$(msg MODEL_DIAG_TIP_DEEP_FIX)"
+        log_info "$(msg MODEL_DIAG_CORRUPT_MANUAL)"
     fi
 
     echo ""
     print_separator
     
     if [[ $specific_issues -gt 0 ]]; then
-        log_warn "Diagnosis completed with $specific_issues issue(s) detected."
+        log_warn "$(msgf DIAG_ISSUES_FOUND "$COMPONENT_NAME" "$specific_issues")"
         exit 1
     else
         if [[ "$is_deep" == true ]]; then
-            log_success "Deep diagnosis completed. The model repository is healthy and ready for use."
+            log_success "$(msg MODEL_DIAG_DONE_DEEP_OK)"
         else
-            log_success "Basic diagnosis completed. The model repository is accessible."
+            log_success "$(msg MODEL_DIAG_DONE_BASIC_OK)"
         fi
         exit 0
     fi

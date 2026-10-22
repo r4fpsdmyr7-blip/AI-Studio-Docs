@@ -26,17 +26,17 @@ source "$COMPONENT_DIR/metadata.sh"
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_YELLOW}  Stopping: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_YELLOW}  $(msgf BANNER_STOP "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
     # Inform the user about the nature of this component
-    log_info "The '${COMPONENT_NAME}' component is a static asset repository."
-    log_info "It does not run as a background service and does not consume CPU/GPU resources on its own."
+    log_info "$(msgf MODEL_STOP_STATIC "$COMPONENT_NAME")"
+    log_info "$(msg MODEL_STOP_NO_SERVICE)"
     echo ""
 
     # Provide actionable advice on how to actually free up resources
-    log_info "${COLOR_CYAN}To free up system resources (VRAM/RAM), you should stop the components that are currently loading these models:${COLOR_RESET}"
+    log_info "${COLOR_CYAN}$(msg MODEL_STOP_FREE_HINT)${COLOR_RESET}"
     echo ""
     
     local running_inference_components=()
@@ -55,23 +55,23 @@ main() {
     fi
 
     if [[ ${#running_inference_components[@]} -gt 0 ]]; then
-        echo -e "  ${COLOR_YELLOW}⚠️  The following components are currently running and may be holding models in memory:${COLOR_RESET}"
+        echo -e "  ${COLOR_YELLOW}$(msg MODEL_STOP_RUNNING_WARN)${COLOR_RESET}"
         for comp in "${running_inference_components[@]}"; do
-            echo "    • ${comp}"
+            echo "    - ${comp}"
         done
         echo ""
-        echo "  To stop them and free up resources, run:"
+        echo "  $(msg STOP_DEPS_HINT)"
         for comp in "${running_inference_components[@]}"; do
             local comp_name="${comp%% *}" # Extract just the component name
             echo "    ${COLOR_GRAY}./ai-studio.sh stop ${comp_name}${COLOR_RESET}"
         done
     else
-        echo -e "  ${COLOR_GREEN}✅ No inference components are currently running. Your system resources are fully available.${COLOR_RESET}"
+        echo -e "  ${COLOR_GREEN}[OK] $(msg MODEL_STOP_ALL_FREE)${COLOR_RESET}"
     fi
 
     echo ""
     print_separator
-    log_success "No action required for '${COMPONENT_NAME}'. Component state is preserved."
+    log_success "$(msgf MODEL_STOP_NO_ACTION "$COMPONENT_NAME")"
     echo ""
     print_separator
     

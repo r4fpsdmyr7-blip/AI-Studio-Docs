@@ -11,7 +11,11 @@
 
 # 1. Basic Identification
 readonly COMPONENT_NAME="open-webui"
-readonly COMPONENT_DESCRIPTION="Powerful and feature-rich local LLM Web UI"
+if declare -f msg >/dev/null 2>&1; then
+    readonly COMPONENT_DESCRIPTION="$(msg DESC_OPEN_WEBUI)"
+else
+    readonly COMPONENT_DESCRIPTION="Powerful and feature-rich local LLM Web UI"
+fi
 readonly COMPONENT_TYPE="python" # Deployment type: python, node, docker, binary
 
 # 2. Network Configuration

@@ -31,24 +31,24 @@ check_venv_health() {
     local venv_python="${COMPONENT_DIR}/${COMPONENT_VENV_DIR}/bin/python"
     
     if [[ ! -d "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" ]]; then
-        echo "CRITICAL: Virtual environment directory is missing."
-        echo "  -> Run './ai-studio.sh install ${COMPONENT_NAME}' to set it up."
+        echo "$(msg MLX_DIAG_VENV_DIR_MISSING)"
+        echo "  $(msgf MLX_DIAG_HINT_SETUP "$COMPONENT_NAME")"
         return 1
     fi
     
     if [[ ! -x "$venv_python" ]]; then
-        echo "CRITICAL: Virtual environment Python binary is missing or not executable."
-        echo "  -> The environment is corrupted. Re-installation is required."
+        echo "$(msg MLX_DIAG_VENV_PY_MISSING)"
+        echo "  $(msg MLX_DIAG_HINT_REINSTALL)"
         return 1
     fi
     
     if ! "$venv_python" -c "import mlx" >/dev/null 2>&1; then
-        echo "CRITICAL: MLX package is installed but cannot be imported."
-        echo "  -> The Python environment is broken. Re-installation is required."
+        echo "$(msg MLX_DIAG_IMPORT_FAIL)"
+        echo "  $(msg MLX_DIAG_PYENV_BROKEN)"
         return 1
     fi
     
-    echo "OK: Virtual environment is healthy and MLX is importable."
+    echo "$(msg MLX_DIAG_VENV_OK)"
     return 0
 }
 
@@ -61,15 +61,15 @@ check_hardware_acceleration() {
     device_info=$("$venv_python" -c "import mlx.core as mx; print(str(mx.default_device()).split('.')[-1])" 2>/dev/null)
     
     if [[ "$device_info" == "mlx" ]] || [[ "$device_info" == "gpu" ]]; then
-        echo "OK: Hardware acceleration is active (Device: ${device_info})."
+        echo "$(msgf MLX_DIAG_HW_OK "$device_info")"
         return 0
     elif [[ -n "$device_info" ]]; then
-        echo "WARNING: MLX is running, but hardware acceleration may be limited (Device: ${device_info})."
-        echo "  -> This is expected on Intel Macs, but indicates suboptimal performance on Apple Silicon."
+        echo "$(msgf MLX_DIAG_HW_LIMITED "$device_info")"
+        echo "  $(msg MLX_DIAG_HW_LIMITED_NOTE)"
         return 0
     else
-        echo "CRITICAL: Failed to query MLX device information."
-        echo "  -> The MLX installation may be fundamentally broken."
+        echo "$(msg MLX_DIAG_HW_QUERY_FAIL)"
+        echo "  $(msg MLX_DIAG_HW_BROKEN)"
         return 1
     fi
 }
@@ -80,18 +80,18 @@ check_system_deps() {
     
     # MLX often requires cmake for building custom extensions or from source
     if ! command_exists "cmake"; then
-        echo "WARNING: 'cmake' is not installed."
-        echo "  -> Required for building certain MLX extensions or compiling from source."
+        echo "$(msg MLX_DIAG_CMAKE_MISSING)"
+        echo "  $(msg MLX_DIAG_CMAKE_NOTE)"
         ((issues++))
     fi
     
     if ! command_exists "python3"; then
-        echo "CRITICAL: System 'python3' is missing."
+        echo "$(msg MLX_DIAG_SYS_PY_MISSING)"
         ((issues++))
     fi
     
     if [[ $issues -eq 0 ]]; then
-        echo "OK: All required system build dependencies are present."
+        echo "$(msg MLX_DIAG_DEPS_OK)"
     fi
     
     return $issues
@@ -106,23 +106,23 @@ attempt_mlx_fix() {
     
     # Fix 1: Repair system dependencies
     if ! command_exists "cmake" || ! command_exists "python3"; then
-        log_info "  -> Attempting to repair system build dependencies..."
+        log_info "  $(msg MLX_DIAG_FIX_DEPS)"
         if install_component_deps "$COMPONENT_NAME" $COMPONENT_REQUIRED_DEPS; then
-            log_success "    System dependencies repaired."
+            log_success "    $(msg MLX_DIAG_FIX_DEPS_OK)"
             ((fixed++))
         else
-            log_error "    Failed to repair system dependencies. Please install manually."
+            log_error "    $(msg MLX_DIAG_FIX_DEPS_FAILED)"
         fi
     fi
     
     # Fix 2: Fix directory permissions (common issue if run with sudo accidentally)
     if [[ -d "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" ]] && [[ ! -w "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" ]]; then
-        log_info "  -> Attempting to fix virtual environment permissions..."
+        log_info "  $(msg MLX_DIAG_FIX_VENV_PERMS)"
         if chmod -R u+w "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" 2>/dev/null; then
-            log_success "    Virtual environment permissions repaired."
+            log_success "    $(msg MLX_DIAG_FIX_VENV_PERMS_OK)"
             ((fixed++))
         else
-            log_error "    Failed to repair permissions. Manual intervention required."
+            log_error "    $(msg DIAG_FIX_PERMS_FAILED)"
         fi
     fi
     
@@ -150,8 +150,8 @@ main() {
     done
 
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  Diagnosing: ${COMPONENT_NAME}${COLOR_RESET}"
-    echo -e "${COLOR_GRAY}  Note: MLX is a foundational framework, not a background service.${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msgf BANNER_DIAGNOSE "$COMPONENT_NAME")${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}  $(msg MLX_DIAG_NOTE)${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -159,7 +159,7 @@ main() {
     local result
 
     # --- Component-Specific Checks ---
-    log_info "Running MLX framework specific checks..."
+    log_info "$(msgf DIAG_SPECIFIC_CHECKS "MLX")"
     
     result=$(check_venv_health)
     echo -e "  [${COLOR_BLUE}VENV_HEALTH${COLOR_RESET}] $result"
@@ -173,15 +173,15 @@ main() {
             echo -e "  [${COLOR_BLUE}HW_ACCEL${COLOR_RESET}] $result"
             [[ $? -ne 0 ]] && ((specific_issues++))
         else
-            echo -e "  [${COLOR_BLUE}HW_ACCEL${COLOR_RESET}] ${COLOR_GRAY}Skipped (Virtual environment is broken)${COLOR_RESET}"
+            echo -e "  [${COLOR_BLUE}HW_ACCEL${COLOR_RESET}] ${COLOR_GRAY}$(msg MLX_DIAG_SKIP_VENV_BROKEN)${COLOR_RESET}"
         fi
         
         result=$(check_system_deps)
         echo -e "  [${COLOR_BLUE}SYS_DEPS${COLOR_RESET}] $result"
         [[ $? -ne 0 ]] && ((specific_issues++))
     else
-        echo -e "  [${COLOR_BLUE}HW_ACCEL${COLOR_RESET}] ${COLOR_GRAY}Skipped (Use --deep to verify hardware acceleration)${COLOR_RESET}"
-        echo -e "  [${COLOR_BLUE}SYS_DEPS${COLOR_RESET}] ${COLOR_GRAY}Skipped (Use --deep to check build tools)${COLOR_RESET}"
+        echo -e "  [${COLOR_BLUE}HW_ACCEL${COLOR_RESET}] ${COLOR_GRAY}$(msg MLX_DIAG_SKIP_HW)${COLOR_RESET}"
+        echo -e "  [${COLOR_BLUE}SYS_DEPS${COLOR_RESET}] ${COLOR_GRAY}$(msg MLX_DIAG_SKIP_DEPS)${COLOR_RESET}"
     fi
 
     # --- Auto-Fix Execution ---
@@ -192,27 +192,27 @@ main() {
         # If venv was broken and we couldn't fix it via permissions, give explicit advice
         if [[ $venv_status -ne 0 ]]; then
             echo ""
-            log_warn "The virtual environment is corrupted and cannot be auto-fixed."
-            log_info "Please run the following commands to rebuild it safely:"
+            log_warn "$(msg MLX_DIAG_VENV_NO_AUTOFIX)"
+            log_info "$(msg MLX_DIAG_REBUILD_HINT)"
             log_info "  ${COLOR_GRAY}rm -rf ${COMPONENT_DIR}/${COMPONENT_VENV_DIR}${COLOR_RESET}"
             log_info "  ${COLOR_GRAY}./ai-studio.sh install ${COMPONENT_NAME}${COLOR_RESET}"
         fi
     elif [[ $specific_issues -gt 0 ]] && [[ "$do_fix" != true ]]; then
         echo ""
-        log_info "Tip: Run with '--deep --fix' to attempt automatic resolution of fixable issues (e.g., missing cmake, permissions)."
+        log_info "$(msg DIAG_HINT_DEEP_FIX)"
     fi
 
     echo ""
     print_separator
     
     if [[ $specific_issues -gt 0 ]]; then
-        log_warn "Diagnosis completed with $specific_issues issue(s) detected."
+        log_warn "$(msgf DIAG_ISSUES_FOUND "$COMPONENT_NAME" "$specific_issues")"
         exit 1
     else
         if [[ "$is_deep" == true ]]; then
-            log_success "Deep diagnosis completed. The MLX framework is healthy and optimized."
+            log_success "$(msg MLX_DIAG_DONE_DEEP_OK)"
         else
-            log_success "Basic diagnosis completed. The MLX framework is accessible."
+            log_success "$(msg MLX_DIAG_DONE_BASIC_OK)"
         fi
         exit 0
     fi

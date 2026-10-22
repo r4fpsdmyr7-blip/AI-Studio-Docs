@@ -12,7 +12,11 @@
 
 # 1. Basic Identification
 readonly COMPONENT_NAME="fazm"
-readonly COMPONENT_DESCRIPTION="Native macOS AI Desktop Agent"
+if declare -f msg >/dev/null 2>&1; then
+    readonly COMPONENT_DESCRIPTION="$(msg DESC_FAZM)"
+else
+    readonly COMPONENT_DESCRIPTION="Native macOS AI Desktop Agent"
+fi
 readonly COMPONENT_TYPE="desktop-agent" # Deployment type: python, node, docker, binary, desktop-agent
 
 # 2. Network Configuration

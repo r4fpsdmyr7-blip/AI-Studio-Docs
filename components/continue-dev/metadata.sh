@@ -11,7 +11,11 @@
 
 # 1. Basic Identification
 readonly COMPONENT_NAME="continue-dev"
-readonly COMPONENT_DESCRIPTION="Open-source AI coding assistant for VS Code / JetBrains"
+if declare -f msg >/dev/null 2>&1; then
+    readonly COMPONENT_DESCRIPTION="$(msg DESC_CONTINUE_DEV)"
+else
+    readonly COMPONENT_DESCRIPTION="Open-source AI coding assistant for VS Code / JetBrains"
+fi
 readonly COMPONENT_TYPE="ide-extension" # Deployment type: python, node, docker, binary, ide-extension
 
 # 2. Network Configuration

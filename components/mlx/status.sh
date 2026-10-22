@@ -67,7 +67,7 @@ get_mlx_status() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  Status: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msgf BANNER_STATUS "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -80,52 +80,52 @@ main() {
 
     # Step 2: Format and Print Output
     local info_items=()
-    info_items+=("Component: ${COMPONENT_NAME}")
-    info_items+=("Type: ${COMPONENT_TYPE}")
-    info_items+=("Virtual Env: ${COMPONENT_DIR}/${COMPONENT_VENV_DIR}")
+    info_items+=("$(msg LBL_COMPONENT): ${COMPONENT_NAME}")
+    info_items+=("$(msg LBL_TYPE): ${COMPONENT_TYPE}")
+    info_items+=("$(msg LBL_VIRTUAL_ENV): ${COMPONENT_DIR}/${COMPONENT_VENV_DIR}")
 
     case "$status" in
         "READY")
-            echo -e "  [${COLOR_GREEN}READY${COLOR_RESET}] MLX framework is installed and hardware acceleration is active."
-            info_items+=("Version: ${COLOR_GREEN}v${version}${COLOR_RESET}")
-            info_items+=("Active Device: ${COLOR_GREEN}${device} (Apple Silicon Optimized)${COLOR_RESET}")
+            echo -e "  [${COLOR_GREEN}READY${COLOR_RESET}] $(msg MLX_STATUS_READY)"
+            info_items+=("$(msg LBL_VERSION): ${COLOR_GREEN}v${version}${COLOR_RESET}")
+            info_items+=("$(msg LBL_ACTIVE_DEVICE): ${COLOR_GREEN}$(msgf MLX_STATUS_DEVICE_OPT "$device")${COLOR_RESET}")
             ;;
         "WARNING")
-            echo -e "  [${COLOR_YELLOW}WARNING${COLOR_RESET}] MLX is installed, but hardware acceleration may not be active."
-            info_items+=("Version: ${COLOR_YELLOW}v${version}${COLOR_RESET}")
-            info_items+=("Active Device: ${COLOR_YELLOW}${device:-Unknown}${COLOR_RESET}")
-            info_items+=("Note: Performance will be limited. This is expected on Intel Macs.")
+            echo -e "  [${COLOR_YELLOW}WARNING${COLOR_RESET}] $(msg MLX_STATUS_WARN)"
+            info_items+=("$(msg LBL_VERSION): ${COLOR_YELLOW}v${version}${COLOR_RESET}")
+            info_items+=("$(msg LBL_ACTIVE_DEVICE): ${COLOR_YELLOW}${device:-Unknown}${COLOR_RESET}")
+            info_items+=("$(msg LBL_NOTE): $(msg MLX_STATUS_PERF_NOTE)")
             ;;
         "CORRUPTED")
-            echo -e "  [${COLOR_RED}CORRUPTED${COLOR_RESET}] Virtual environment exists, but MLX cannot be imported."
-            info_items+=("Version: ${COLOR_RED}Failed to load${COLOR_RESET}")
-            info_items+=("Action: Re-installation is required.")
+            echo -e "  [${COLOR_RED}CORRUPTED${COLOR_RESET}] $(msg MLX_STATUS_CORRUPTED)"
+            info_items+=("$(msg LBL_VERSION): ${COLOR_RED}$(msg STATUS_LOAD_FAILED)${COLOR_RESET}")
+            info_items+=("$(msg LBL_ACTION): $(msg ACTION_REINSTALL)")
             ;;
         "NOT_INSTALLED")
-            echo -e "  [${COLOR_RED}NOT INSTALLED${COLOR_RESET}]"
+            echo -e "  [${COLOR_RED}$(msg STATUS_NOT_INSTALLED_TAG)${COLOR_RESET}]"
             echo ""
-            echo "  The MLX framework has not been installed yet."
-            echo "  Run: ${COLOR_CYAN}./ai-studio.sh install ${COMPONENT_NAME}${COLOR_RESET}"
+            echo "  $(msg STATUS_NOT_INSTALLED_DESC)"
+            echo "  $(msgf STATUS_HINT_INSTALL "${COLOR_CYAN}./ai-studio.sh install ${COMPONENT_NAME}${COLOR_RESET}")"
             echo ""
             print_separator
             exit 1
             ;;
-    fi
+    esac
 
     echo ""
-    print_info_block "Environment Details" "${info_items[@]}"
+    print_info_block "$(msg STATUS_ENV_DETAILS)" "${info_items[@]}"
 
     # Step 3: Provide Actionable Next Steps
-    echo -e "${COLOR_BOLD}Next Steps & Usage:${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}$(msg NEXT_STEPS) & $(msg LBL_USAGE):${COLOR_RESET}"
     if [[ "$status" == "READY" ]] || [[ "$status" == "WARNING" ]]; then
-        echo "  • View usage guide:  ${COLOR_GRAY}./ai-studio.sh start ${COMPONENT_NAME}${COLOR_RESET}"
-        echo "  • Download models:   ${COLOR_GRAY}./ai-studio.sh install model${COLOR_RESET}"
-        echo "  • Update framework:  ${COLOR_GRAY}./ai-studio.sh update ${COMPONENT_NAME}${COLOR_RESET}"
+        echo "  - $(msg MLX_STATUS_ACTION_GUIDE)  ${COLOR_GRAY}./ai-studio.sh start ${COMPONENT_NAME}${COLOR_RESET}"
+        echo "  - $(msg MLX_STATUS_ACTION_MODELS)   ${COLOR_GRAY}./ai-studio.sh install model${COLOR_RESET}"
+        echo "  - $(msg MLX_STATUS_ACTION_UPDATE)  ${COLOR_GRAY}./ai-studio.sh update ${COMPONENT_NAME}${COLOR_RESET}"
         echo ""
-        echo -e "  ${COLOR_GRAY}💡 Tip: To use MLX in your own scripts, activate the environment first:${COLOR_RESET}"
+        echo -e "  ${COLOR_GRAY}$(msg MLX_STATUS_TIP_ACTIVATE)${COLOR_RESET}"
         echo -e "  ${COLOR_GRAY}   source ${COMPONENT_DIR}/${COMPONENT_VENV_DIR}/bin/activate${COLOR_RESET}"
     else
-        echo "  • Fix installation:  ${COLOR_GRAY}./ai-studio.sh install ${COMPONENT_NAME}${COLOR_RESET}"
+        echo "  - $(msg MLX_STATUS_ACTION_FIX)  ${COLOR_GRAY}./ai-studio.sh install ${COMPONENT_NAME}${COLOR_RESET}"
     fi
     echo ""
     

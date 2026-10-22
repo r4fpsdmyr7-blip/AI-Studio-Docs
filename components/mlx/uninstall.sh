@@ -39,8 +39,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            log_error "Unknown uninstall argument: $1"
-            log_info "Usage: ./ai-studio.sh uninstall ${COMPONENT_NAME} [--keep-data] [--force]"
+            log_error "$(msgf UNINSTALL_UNKNOWN_ARG "$1")"
+            log_info "$(msgf UNINSTALL_USAGE "$COMPONENT_NAME")"
             exit 1
             ;;
     esac
@@ -52,7 +52,7 @@ done
 
 check_installation() {
     if [[ ! -d "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" ]]; then
-        log_info "${COMPONENT_NAME} virtual environment does not exist. Nothing to uninstall."
+        log_info "$(msgf UNINSTALL_NOT_INSTALLED "$COMPONENT_NAME")"
         return 1
     fi
     return 0
@@ -63,21 +63,21 @@ confirm_uninstall() {
         return 0 # Skip confirmation in force mode
     fi
 
-    local warning_msg="Are you sure you want to uninstall the ${COMPONENT_NAME} framework?"
+    local warning_msg="$(msgf MLX_UNINSTALL_CONFIRM "$COMPONENT_NAME")"
     if [[ "$KEEP_DATA" == false ]]; then
-        warning_msg="${warning_msg} ${COLOR_YELLOW}This will delete the isolated Python virtual environment.${COLOR_RESET}"
+        warning_msg="${warning_msg} ${COLOR_YELLOW}$(msg MLX_UNINSTALL_WILL_DELETE)${COLOR_RESET}"
     else
-        warning_msg="${warning_msg} ${COLOR_GREEN}(The virtual environment will be preserved)${COLOR_RESET}"
+        warning_msg="${warning_msg} ${COLOR_GREEN}$(msg MLX_UNINSTALL_WILL_KEEP)${COLOR_RESET}"
     fi
 
     if ! confirm_action "$warning_msg" "N"; then
-        log_info "Uninstallation cancelled by user."
+        log_info "$(msg UNINSTALL_CANCELLED)"
         exit 0
     fi
 }
 
 cleanup_files() {
-    log_info "Cleaning up component files..."
+    log_info "$(msg UNINSTALL_CLEANING)"
     
     # Define files to KEEP (the standard AI Studio interface scripts)
     local keep_files=(
@@ -101,9 +101,9 @@ cleanup_files() {
     if [[ "$KEEP_DATA" == true ]]; then
         local venv_dir_name="${COMPONENT_VENV_DIR%/}"
         exclude_args+=("-name" "$venv_dir_name" "-o")
-        log_info "Preserving virtual environment directory: ${COMPONENT_VENV_DIR}"
+        log_info "$(msgf MLX_UNINSTALL_PRESERVE "$COMPONENT_VENV_DIR")"
     else
-        log_warn "Deleting virtual environment directory: ${COMPONENT_VENV_DIR}"
+        log_warn "$(msgf MLX_UNINSTALL_DELETE "$COMPONENT_VENV_DIR")"
     fi
 
     # Remove the last "-o" from the array
@@ -111,23 +111,23 @@ cleanup_files() {
 
     # Execute find and delete everything EXCEPT the kept files/directories
     if find "$COMPONENT_DIR" -mindepth 1 -maxdepth 1 \( "${exclude_args[@]}" \) -prune -o -exec rm -rf {} +; then
-        log_success "Component source code and dependencies removed."
+        log_success "$(msg UNINSTALL_REMOVED_OK)"
     else
-        log_error "Failed to clean up some files. You may need to remove them manually."
+        log_error "$(msg UNINSTALL_CLEAN_FAILED)"
     fi
 
     # Clean up component-specific log file
     local log_file="${AI_STUDIO_ROOT}/logs/${COMPONENT_NAME}.log"
     if [[ -f "$log_file" ]]; then
         rm -f "$log_file"
-        log_info "Cleared component log file."
+        log_info "$(msg UNINSTALL_LOG_CLEARED)"
     fi
 
     # Clean up component-specific config file (if any)
     local conf_file="${AI_STUDIO_ROOT}/config/${COMPONENT_NAME}.conf"
     if [[ -f "$conf_file" ]]; then
         rm -f "$conf_file"
-        log_info "Cleared component configuration file."
+        log_info "$(msg UNINSTALL_CONF_CLEARED)"
     fi
 }
 
@@ -137,7 +137,7 @@ cleanup_files() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_RED}  Uninstalling: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_RED}  $(msgf BANNER_UNINSTALL "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -157,21 +157,21 @@ main() {
     # Step 4: Completion
     echo ""
     print_separator
-    log_success "${COMPONENT_NAME} has been successfully uninstalled!"
+    log_success "$(msgf UNINSTALL_SUCCESS_COMPONENT "$COMPONENT_NAME")"
     echo ""
     
     if [[ "$KEEP_DATA" == true ]]; then
-        log_info "Your virtual environment has been preserved in: ${COLOR_CYAN}${COMPONENT_DIR}/${COMPONENT_VENV_DIR}${COLOR_RESET}"
-        log_info "You can safely reinstall the component later without re-downloading all Python packages."
+        log_info "$(msgf MLX_UNINSTALL_PRESERVED_AT "${COLOR_CYAN}${COMPONENT_DIR}/${COMPONENT_VENV_DIR}${COLOR_RESET}")"
+        log_info "$(msg MLX_UNINSTALL_REINSTALL_HINT)"
     else
-        log_info "The isolated Python environment has been completely removed."
-        log_info "This does not affect your system-wide Python installation or other components."
+        log_info "$(msg MLX_UNINSTALL_VENV_REMOVED)"
+        log_info "$(msg MLX_UNINSTALL_NO_IMPACT)"
     fi
     
     echo ""
-    echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-    echo "  • View remaining components: ./ai-studio.sh list"
-    echo "  • Install a different component: ./ai-studio.sh install <component>"
+    echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+    echo "  $(msg UNINSTALL_HINT_LIST)"
+    echo "  $(msg UNINSTALL_HINT_INSTALL_OTHER)"
     echo ""
     print_separator
     

@@ -12,7 +12,11 @@
 
 # 1. Basic Identification
 readonly COMPONENT_NAME="comfyui"
-readonly COMPONENT_DESCRIPTION="Powerful node-based image generation UI (SDXL/FLUX support)"
+if declare -f msg >/dev/null 2>&1; then
+    readonly COMPONENT_DESCRIPTION="$(msg DESC_COMFYUI)"
+else
+    readonly COMPONENT_DESCRIPTION="Powerful node-based image generation UI (SDXL/FLUX support)"
+fi
 readonly COMPONENT_TYPE="python" # Deployment type: python, node, docker, binary
 
 # 2. Network Configuration

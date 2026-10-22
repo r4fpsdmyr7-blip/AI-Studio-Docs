@@ -27,17 +27,17 @@ source "$COMPONENT_DIR/metadata.sh"
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_YELLOW}  Stopping: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_YELLOW}  $(msgf BANNER_STOP "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
     # Inform the user about the nature of this component
-    log_info "The '${COMPONENT_NAME}' component is a foundational machine learning framework."
-    log_info "It does not run as a background daemon service and does not consume CPU/GPU resources on its own."
+    log_info "$(msgf MLX_STOP_FOUNDATIONAL "$COMPONENT_NAME")"
+    log_info "$(msg MLX_STOP_NO_DAEMON)"
     echo ""
 
     # Provide actionable advice on how to actually free up resources
-    log_info "${COLOR_CYAN}To free up system resources (VRAM/RAM), you should stop the specific inference components or scripts that are currently utilizing MLX:${COLOR_RESET}"
+    log_info "${COLOR_CYAN}$(msg MLX_STOP_FREE_HINT)${COLOR_RESET}"
     echo ""
     
     local running_inference_components=()
@@ -55,23 +55,23 @@ main() {
     # We keep the check focused on managed daemons.
 
     if [[ ${#running_inference_components[@]} -gt 0 ]]; then
-        echo -e "  ${COLOR_YELLOW}⚠️  The following MLX-dependent components are currently running:${COLOR_RESET}"
+        echo -e "  ${COLOR_YELLOW}[WARN] $(msg MLX_STOP_DEPS_RUNNING)${COLOR_RESET}"
         for comp in "${running_inference_components[@]}"; do
-            echo "    • ${comp}"
+            echo "    - ${comp}"
         done
         echo ""
-        echo "  To stop them and free up resources, run:"
+        echo "  $(msg STOP_DEPS_HINT)"
         for comp in "${running_inference_components[@]}"; do
             local comp_name="${comp%% *}" # Extract just the component name before the parenthesis
-            echo "    ${COLOR_GRAY}./ai-studio.sh stop ${comp_name}${COLOR_RESET}"
+            echo "    ${COLOR_GRAY}$(msgf MLX_STOP_DEPS_CMD "$comp_name")${COLOR_RESET}"
         done
     else
-        echo -e "  ${COLOR_GREEN}✅ No MLX-dependent background services are currently running. Your system resources are fully available.${COLOR_RESET}"
+        echo -e "  ${COLOR_GREEN}[OK] $(msg MLX_STOP_NONE_RUNNING)${COLOR_RESET}"
     fi
 
     echo ""
     print_separator
-    log_success "No action required for '${COMPONENT_NAME}'. Framework state is preserved."
+    log_success "$(msgf MLX_STOP_NO_ACTION "$COMPONENT_NAME")"
     echo ""
     print_separator
     

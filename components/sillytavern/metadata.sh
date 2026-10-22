@@ -11,7 +11,11 @@
 
 # 1. Basic Identification
 readonly COMPONENT_NAME="sillytavern"
-readonly COMPONENT_DESCRIPTION="Advanced LLM roleplay and chatting frontend"
+if declare -f msg >/dev/null 2>&1; then
+    readonly COMPONENT_DESCRIPTION="$(msg DESC_SILLYTAVERN)"
+else
+    readonly COMPONENT_DESCRIPTION="Advanced LLM roleplay and chatting frontend"
+fi
 readonly COMPONENT_TYPE="node" # Deployment type: python, node, docker, binary
 
 # 2. Network Configuration

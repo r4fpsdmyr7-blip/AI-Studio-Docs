@@ -42,9 +42,9 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            log_error "Unknown uninstall argument: $1"
-            log_info "Usage: ./ai-studio.sh uninstall ${COMPONENT_NAME} [--keep-data] [--purge-models] [--force]"
-            log_info "Note: By default, this command ONLY removes management scripts and keeps your models safe."
+            log_error "$(msgf UNINSTALL_UNKNOWN_ARG "$1")"
+            log_info "$(msgf MODEL_UNINSTALL_USAGE "$COMPONENT_NAME")"
+            log_info "$(msg MODEL_UNINSTALL_DEFAULT_NOTE)"
             exit 1
             ;;
     esac
@@ -56,7 +56,7 @@ done
 
 check_installation() {
     if [[ ! -d "$COMPONENT_DATA_DIR" ]] && [[ ! -f "${AI_STUDIO_ROOT}/logs/model-manager.log" ]]; then
-        log_info "${COMPONENT_NAME} management files do not appear to exist. Nothing to uninstall."
+        log_info "$(msgf MODEL_UNINSTALL_NOTHING "$COMPONENT_NAME")"
         return 1
     fi
     return 0
@@ -68,14 +68,14 @@ show_deletion_impact() {
         local total_size
         total_size=$(du -sh "$COMPONENT_DATA_DIR" 2>/dev/null | awk '{print $1}')
         echo ""
-        echo -e "${COLOR_RED}⚠️  CRITICAL DATA DESTRUCTION WARNING  ⚠️${COLOR_RESET}"
-        echo -e "${COLOR_RED}You are about to permanently delete ALL downloaded MLX models.${COLOR_RESET}"
-        echo -e "${COLOR_RED}This includes large assets like Qwen3 35B, FLUX, and Stable Diffusion.${COLOR_RESET}"
+        echo -e "${COLOR_RED}$(msg MODEL_UNINSTALL_WARN_BANNER)${COLOR_RESET}"
+        echo -e "${COLOR_RED}$(msg MODEL_UNINSTALL_WARN_1)${COLOR_RESET}"
+        echo -e "${COLOR_RED}$(msg MODEL_UNINSTALL_WARN_2)${COLOR_RESET}"
         echo ""
-        echo -e "  Target Directory: ${COLOR_GRAY}${COMPONENT_DATA_DIR}${COLOR_RESET}"
-        echo -e "  Space to be freed: ${COLOR_BOLD}${total_size:-Unknown}${COLOR_RESET}"
+        echo -e "  $(msgf MODEL_UNINSTALL_TARGET_DIR "${COLOR_GRAY}${COMPONENT_DATA_DIR}${COLOR_RESET}")"
+        echo -e "  $(msgf MODEL_UNINSTALL_SPACE_FREED "${COLOR_BOLD}${total_size:-Unknown}${COLOR_RESET}")"
         echo ""
-        echo -e "${COLOR_RED}THIS ACTION CANNOT BE UNDONE.${COLOR_RESET}"
+        echo -e "${COLOR_RED}$(msg MODEL_UNINSTALL_UNDOABLE)${COLOR_RESET}"
     fi
 }
 
@@ -88,45 +88,45 @@ confirm_destruction() {
 
     # Require explicit, full-string confirmation for destructive action
     local confirm_input
-    read -r -p "$(echo -e "${COLOR_RED}Type 'DELETE ALL MODELS' to confirm permanent deletion: ${COLOR_RESET}")" confirm_input
+    read -r -p "$(echo -e "${COLOR_RED}$(msg MODEL_UNINSTALL_CONFIRM_PROMPT) ${COLOR_RESET}")" confirm_input
     
     if [[ "$confirm_input" == "DELETE ALL MODELS" ]]; then
-        log_warn "Confirmation received. Proceeding with model deletion..."
+        log_warn "$(msg MODEL_UNINSTALL_CONFIRMED)"
         return 0
     else
-        log_info "Uninstallation cancelled. Your models are safe."
+        log_info "$(msg MODEL_UNINSTALL_CANCELLED)"
         exit 0
     fi
 }
 
 cleanup_files() {
-    log_info "Cleaning up component files..."
+    log_info "$(msg UNINSTALL_CLEANING)"
     
     # 1. Clean up global log file
     local log_file="${AI_STUDIO_ROOT}/logs/model-manager.log"
     if [[ -f "$log_file" ]]; then
         rm -f "$log_file"
-        log_info "Cleared model manager log file."
+        log_info "$(msg MODEL_UNINSTALL_LOG_CLEARED)"
     fi
 
     # 2. Clean up component-specific config file (if any)
     local conf_file="${AI_STUDIO_ROOT}/config/${COMPONENT_NAME}.conf"
     if [[ -f "$conf_file" ]]; then
         rm -f "$conf_file"
-        log_info "Cleared model configuration file."
+        log_info "$(msg MODEL_UNINSTALL_CONF_CLEARED)"
     fi
 
     # 3. Handle the main data directory based on KEEP_DATA flag
     if [[ "$KEEP_DATA" == true ]]; then
-        log_success "Model assets preserved at: ${COLOR_CYAN}${COMPONENT_DATA_DIR}${COLOR_RESET}"
-        log_info "Only management logs and configs were removed. You can reinstall the manager anytime."
+        log_success "$(msgf MODEL_UNINSTALL_PRESERVED_AT "${COLOR_CYAN}${COMPONENT_DATA_DIR}${COLOR_RESET}")"
+        log_info "$(msg MODEL_UNINSTALL_ONLY_LOGS)"
     else
         if [[ -d "$COMPONENT_DATA_DIR" ]]; then
-            log_warn "Permanently deleting model directory: ${COMPONENT_DATA_DIR}"
+            log_warn "$(msgf MODEL_UNINSTALL_DELETING "$COMPONENT_DATA_DIR")"
             if rm -rf "$COMPONENT_DATA_DIR"; then
-                log_success "Model assets successfully deleted. Disk space has been freed."
+                log_success "$(msg MODEL_UNINSTALL_DELETED)"
             else
-                log_error "Failed to delete model directory. You may need to remove it manually with sudo."
+                log_error "$(msg MODEL_UNINSTALL_DELETE_FAILED)"
             fi
         fi
     fi
@@ -138,7 +138,7 @@ cleanup_files() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_RED}  Uninstalling: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_RED}  $(msgf BANNER_UNINSTALL "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -152,8 +152,8 @@ main() {
     if [[ "$KEEP_DATA" == false ]]; then
         confirm_destruction
     else
-        log_info "Default mode: Preserving all downloaded model weights."
-        log_info "This will only remove AI Studio management logs and configurations."
+        log_info "$(msg MODEL_UNINSTALL_DEFAULT_MODE)"
+        log_info "$(msg MODEL_UNINSTALL_DEFAULT_MODE_2)"
     fi
 
     # Step 3: Execute Cleanup
@@ -163,22 +163,22 @@ main() {
     # Step 4: Completion
     echo ""
     print_separator
-    log_success "${COMPONENT_NAME} management has been successfully uninstalled!"
+    log_success "$(msgf MODEL_UNINSTALL_DONE "$COMPONENT_NAME")"
     echo ""
     
     if [[ "$KEEP_DATA" == true ]]; then
-        echo -e "${COLOR_CYAN}Note:${COLOR_RESET}"
-        echo "  Your models are still intact at: ${COMPONENT_DATA_DIR}"
-        echo "  Other components (like ComfyUI) can still access them if configured."
+        echo -e "${COLOR_CYAN}$(msg LBL_NOTE):${COLOR_RESET}"
+        echo "  $(msgf MODEL_UNINSTALL_STILL_INTACT "$COMPONENT_DATA_DIR")"
+        echo "  $(msg MODEL_UNINSTALL_STILL_ACCESSIBLE)"
     else
-        echo -e "${COLOR_YELLOW}Note:${COLOR_RESET}"
-        echo "  All local model weights have been permanently deleted."
-        echo "  You will need to re-download them to use image/LLM generation features."
+        echo -e "${COLOR_YELLOW}$(msg LBL_NOTE):${COLOR_RESET}"
+        echo "  $(msg MODEL_UNINSTALL_ALL_DELETED)"
+        echo "  $(msg MODEL_UNINSTALL_NEED_REDOWNLOAD)"
     fi
     
     echo ""
-    echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-    echo "  • View remaining components: ./ai-studio.sh list"
+    echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+    echo "  $(msg UNINSTALL_HINT_LIST)"
     echo ""
     print_separator
     

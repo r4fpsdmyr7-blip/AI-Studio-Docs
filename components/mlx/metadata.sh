@@ -12,7 +12,11 @@
 
 # 1. Basic Identification
 readonly COMPONENT_NAME="mlx"
-readonly COMPONENT_DESCRIPTION="Apple's machine learning framework optimized for Apple Silicon"
+if declare -f msg >/dev/null 2>&1; then
+    readonly COMPONENT_DESCRIPTION="$(msg DESC_MLX)"
+else
+    readonly COMPONENT_DESCRIPTION="Apple's machine learning framework optimized for Apple Silicon"
+fi
 readonly COMPONENT_TYPE="python" # Deployment type: python, node, docker, binary, framework
 
 # 2. Network Configuration
@@ -30,6 +34,11 @@ readonly COMPONENT_BRANCH="main" # Track the main branch for the latest Apple Si
 readonly COMPONENT_REQUIRED_DEPS="python3 git cmake"
 
 # 5. Runtime Configuration Paths
+# Isolated Python virtual environment directory (relative to the component dir).
+# NOTE: mlx/install.sh, start.sh, stop.sh, status.sh, update.sh, diagnose.sh and
+# uninstall.sh all reference this variable under 'set -u'; it MUST be defined here.
+readonly COMPONENT_VENV_DIR=".venv"
+
 # MLX itself does not have a persistent user data directory like a Web UI.
 # However, models downloaded via MLX examples or related tools are often cached.
 # We point to the standard macOS cache directory for MLX.
@@ -52,6 +61,7 @@ export COMPONENT_PORT
 export COMPONENT_REPO
 export COMPONENT_BRANCH
 export COMPONENT_REQUIRED_DEPS
+export COMPONENT_VENV_DIR
 export COMPONENT_DATA_DIR
 export COMPONENT_LOG_FILE
 export COMPONENT_UPDATE_TARGETS

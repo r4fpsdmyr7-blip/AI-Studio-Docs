@@ -12,7 +12,11 @@
 
 # 1. Basic Identification
 readonly COMPONENT_NAME="mlx-video"
-readonly COMPONENT_DESCRIPTION="Efficient local video generation tool powered by MLX"
+if declare -f msg >/dev/null 2>&1; then
+    readonly COMPONENT_DESCRIPTION="$(msg DESC_MLX_VIDEO)"
+else
+    readonly COMPONENT_DESCRIPTION="Efficient local video generation tool powered by MLX"
+fi
 readonly COMPONENT_TYPE="python" # Deployment type: python, node, docker, binary
 
 # 2. Network Configuration

@@ -11,7 +11,11 @@
 
 # 1. Basic Identification
 readonly COMPONENT_NAME="model"
-readonly COMPONENT_DESCRIPTION="Centralized MLX model repository manager (LLMs, SD, FLUX)"
+if declare -f msg >/dev/null 2>&1; then
+    readonly COMPONENT_DESCRIPTION="$(msg DESC_MODEL)"
+else
+    readonly COMPONENT_DESCRIPTION="Centralized MLX model repository manager (LLMs, SD, FLUX)"
+fi
 readonly COMPONENT_TYPE="model-repository" # Special type: not a standalone service
 
 # 2. Network Configuration

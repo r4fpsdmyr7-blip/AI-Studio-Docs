@@ -34,11 +34,11 @@ check_model_disk_space() {
     avail_gb=$(df -g "$target_dir" | awk 'NR==2 {print $4}' | tr -dc '0-9')
     
     if [[ "$avail_gb" -lt "$required_gb" ]]; then
-        log_error "Insufficient disk space at ${target_dir}."
-        log_info "Found: ${avail_gb}GB, Required: ${required_gb}GB+ for large MLX models."
+        log_error "$(msgf MODEL_INSTALL_DISK_LOW "$target_dir")"
+        log_info "$(msgf MODEL_INSTALL_DISK_DETAIL "$avail_gb" "$required_gb")"
         return 1
     fi
-    log_success "Disk space check passed (${avail_gb}GB available at ${target_dir})."
+    log_success "$(msgf MODEL_INSTALL_DISK_OK "$avail_gb" "$target_dir")"
     return 0
 }
 
@@ -49,16 +49,16 @@ download_mlx_model() {
     local model_dir_name="$2"
     local target_path="${COMPONENT_DATA_DIR}/${model_dir_name}"
     
-    log_info "Checking model: ${COLOR_CYAN}${model_dir_name}${COLOR_RESET}"
+    log_info "$(msgf MODEL_INSTALL_CHECKING "${COLOR_CYAN}${model_dir_name}${COLOR_RESET}")"
     
     # Idempotency check: If config.json or a .safetensors file exists, assume it's downloaded
     if [[ -f "${target_path}/config.json" ]] || [[ -n "$(ls -A "${target_path}"/*.safetensors 2>/dev/null)" ]]; then
-        log_success "Model '${model_dir_name}' already exists. Skipping download."
+        log_success "$(msgf MODEL_INSTALL_EXISTS "$model_dir_name")"
         return 0
     fi
 
-    log_info "Downloading ${repo_id} to ${target_path}..."
-    log_warn "${COLOR_YELLOW}This is a large file. The download supports resuming if interrupted.${COLOR_RESET}"
+    log_info "$(msgf MODEL_INSTALL_DOWNLOADING "$repo_id" "$target_path")"
+    log_warn "${COLOR_YELLOW}$(msg MODEL_INSTALL_LARGE_FILE)${COLOR_RESET}"
     
     # Ensure parent directory exists
     ensure_dir "$(dirname "$target_path")"
@@ -70,14 +70,14 @@ download_mlx_model() {
     # Use huggingface-cli to download. 
     # --resume-download is critical for large models over unstable connections
     if huggingface-cli download "$repo_id" --local-dir "$target_path" --resume-download; then
-        log_success "Successfully downloaded ${model_dir_name}."
+        log_success "$(msgf MODEL_INSTALL_DL_OK "$model_dir_name")"
         return 0
     else
-        log_error "Failed to download ${model_dir_name}."
-        log_info "Troubleshooting:"
-        log_info "  1. Check your internet connection."
-        log_info "  2. If this is a gated model, run: huggingface-cli login"
-        log_info "  3. Ensure you have accepted the model license on Hugging Face."
+        log_error "$(msgf MODEL_INSTALL_DL_FAIL "$model_dir_name")"
+        log_info "$(msg TROUBLESHOOT_LABEL)"
+        log_info "  $(msg MODEL_INSTALL_TS_1)"
+        log_info "  $(msg MODEL_INSTALL_TS_2)"
+        log_info "  $(msg MODEL_INSTALL_TS_3)"
         return 1
     fi
 }
@@ -88,27 +88,27 @@ download_mlx_model() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  Installing: ${COMPONENT_NAME} (MLX Model Repository)${COLOR_RESET}"
-    echo -e "${COLOR_GRAY}  Centralized storage for Qwen3, SD, and FLUX MLX models${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msgf BANNER_INSTALL "$COMPONENT_NAME") $(msg MODEL_REPO_SUFFIX)${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}  $(msg MODEL_INSTALL_SUBTITLE)${COLOR_RESET}"
     print_separator
     echo ""
 
     # Step 1: Dependency Verification & Installation
-    log_info "Step 1/3: Verifying system dependencies for large file downloads..."
+    log_info "$(msg MODEL_INSTALL_STEP1)"
     if ! install_component_deps "$COMPONENT_NAME" $COMPONENT_REQUIRED_DEPS; then
-        log_error "Failed to install required dependencies. Aborting."
+        log_error "$(msg INSTALL_FAILED_DEPS)"
         exit 1
     fi
 
     # Step 2: Disk Space Verification
-    log_info "Step 2/3: Verifying disk space for model storage..."
+    log_info "$(msg MODEL_INSTALL_STEP2)"
     # FLUX and 35B LLMs can easily exceed 30-40GB. We require at least 50GB free.
     if ! check_model_disk_space "$COMPONENT_DATA_DIR" 50; then
         exit 1
     fi
 
     # Step 3: Model Download Execution
-    log_info "Step 3/3: Downloading MLX-optimized models..."
+    log_info "$(msg MODEL_INSTALL_STEP3)"
     echo ""
     
     local download_failed=0
@@ -131,21 +131,21 @@ main() {
     print_separator
 
     if [[ $download_failed -gt 0 ]]; then
-        log_error "Model installation completed with $download_failed error(s)."
-        log_info "Please review the errors above. You can re-run this script to resume failed downloads."
+        log_error "$(msgf MODEL_INSTALL_DONE_ERRORS "$download_failed")"
+        log_info "$(msg MODEL_INSTALL_RETRY_HINT)"
         exit 1
     else
-        log_success "All specified MLX models have been successfully downloaded!"
+        log_success "$(msg MODEL_INSTALL_ALL_OK)"
         echo ""
-        echo -e "${COLOR_CYAN}Integration Guide:${COLOR_RESET}"
-        echo "  Your models are centrally stored at: ${COLOR_BOLD}${COMPONENT_DATA_DIR}${COLOR_RESET}"
+        echo -e "${COLOR_CYAN}$(msg MODEL_INSTALL_INTEGRATION)${COLOR_RESET}"
+        echo "  $(msgf MODEL_INSTALL_STORED_AT "${COLOR_BOLD}${COMPONENT_DATA_DIR}${COLOR_RESET}")"
         echo ""
-        echo "  To use these models in other components:"
-        echo "  • ComfyUI: Add this path to your 'extra_model_paths.yaml'"
-        echo "  • MLX-Video / Custom Scripts: Set your model path argument to this directory"
-        echo "  • Ollama (for LLMs): You may need to convert or link these, or use native Ollama pull"
+        echo "  $(msg MODEL_INSTALL_USAGE_INTRO)"
+        echo "  - $(msg MODEL_INSTALL_USAGE_COMFYUI)"
+        echo "  - $(msg MODEL_INSTALL_USAGE_MLX)"
+        echo "  - $(msg MODEL_INSTALL_USAGE_OLLAMA)"
         echo ""
-        echo -e "${COLOR_GRAY}💡 Tip: Run './ai-studio.sh update model --target models' later to check for model weight updates.${COLOR_RESET}"
+        echo -e "${COLOR_GRAY}$(msg MODEL_INSTALL_TIP_UPDATE)${COLOR_RESET}"
         echo ""
     fi
 

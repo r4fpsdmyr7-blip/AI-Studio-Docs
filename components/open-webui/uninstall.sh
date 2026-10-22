@@ -39,8 +39,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            log_error "Unknown uninstall argument: $1"
-            log_info "Usage: ./ai-studio.sh uninstall ${COMPONENT_NAME} [--keep-data] [--force]"
+            log_error "$(msgf UNINSTALL_UNKNOWN_ARG "$1")"
+            log_info "$(msgf UNINSTALL_USAGE "$COMPONENT_NAME")"
             exit 1
             ;;
     esac
@@ -52,7 +52,7 @@ done
 
 check_installation() {
     if [[ ! -d "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" ]]; then
-        log_info "${COMPONENT_NAME} does not appear to be installed. Nothing to uninstall."
+        log_info "$(msgf UNINSTALL_NOT_INSTALLED "$COMPONENT_NAME")"
         return 1
     fi
     return 0
@@ -60,14 +60,14 @@ check_installation() {
 
 stop_service_safely() {
     if is_daemon_running "$COMPONENT_NAME"; then
-        log_info "Stopping ${COMPONENT_NAME} service before uninstallation..."
+        log_info "$(msgf UNINSTALL_STOPPING "$COMPONENT_NAME")"
         if ! stop_daemon "$COMPONENT_NAME" 15; then
             if [[ "$FORCE_UNINSTALL" == true ]]; then
-                log_warn "Failed to stop gracefully. Force killing due to --force flag..."
+                log_warn "$(msg UNINSTALL_FORCE_KILL)"
                 kill_process_on_port "$COMPONENT_PORT" 2>/dev/null || true
             else
-                log_error "Failed to stop ${COMPONENT_NAME} gracefully."
-                log_info "Please stop the service manually or use the --force flag."
+                log_error "$(msgf UNINSTALL_STOP_FAILED "$COMPONENT_NAME")"
+                log_info "$(msg UNINSTALL_STOP_HINT)"
                 return 1
             fi
         fi
@@ -88,13 +88,13 @@ confirm_uninstall() {
     fi
 
     if ! confirm_action "$warning_msg" "N"; then
-        log_info "Uninstallation cancelled by user."
+        log_info "$(msg UNINSTALL_CANCELLED)"
         exit 0
     fi
 }
 
 cleanup_files() {
-    log_info "Cleaning up component files..."
+    log_info "$(msg UNINSTALL_CLEANING)"
     
     # Define files to KEEP (the standard AI Studio interface scripts)
     local keep_files=(
@@ -120,9 +120,9 @@ cleanup_files() {
         local data_dir_name="${COMPONENT_DATA_DIR%/}"
         data_dir_name="${data_dir_name#./}" # Remove leading ./ if present
         exclude_args+=("-name" "$data_dir_name" "-o")
-        log_info "Preserving user data directory: ${COMPONENT_DATA_DIR}"
+        log_info "$(msgf UNINSTALL_KEEP_DATA "$COMPONENT_DATA_DIR")"
     else
-        log_warn "Deleting user data directory: ${COMPONENT_DATA_DIR}"
+        log_warn "$(msgf UNINSTALL_DELETE_DATA "$COMPONENT_DATA_DIR")"
     fi
 
     # Remove the last "-o" from the array
@@ -131,23 +131,23 @@ cleanup_files() {
     # Execute find and delete everything EXCEPT the kept files/directories
     # -mindepth 1 ensures we don't delete the component directory itself, just its contents
     if find "$COMPONENT_DIR" -mindepth 1 -maxdepth 1 \( "${exclude_args[@]}" \) -prune -o -exec rm -rf {} +; then
-        log_success "Component source code and dependencies removed."
+        log_success "$(msg UNINSTALL_REMOVED_OK)"
     else
-        log_error "Failed to clean up some files. You may need to remove them manually."
+        log_error "$(msg UNINSTALL_CLEAN_FAILED)"
     fi
 
     # Clean up component-specific log file
     local log_file="${AI_STUDIO_ROOT}/logs/${COMPONENT_NAME}.log"
     if [[ -f "$log_file" ]]; then
         rm -f "$log_file"
-        log_info "Cleared component log file."
+        log_info "$(msg UNINSTALL_LOG_CLEARED)"
     fi
 
     # Clean up component-specific config file
     local conf_file="${AI_STUDIO_ROOT}/config/${COMPONENT_NAME}.conf"
     if [[ -f "$conf_file" ]]; then
         rm -f "$conf_file"
-        log_info "Cleared component configuration file."
+        log_info "$(msg UNINSTALL_CONF_CLEARED)"
     fi
 }
 
@@ -157,7 +157,7 @@ cleanup_files() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_RED}  Uninstalling: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_RED}  $(msgf BANNER_UNINSTALL "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -183,20 +183,20 @@ main() {
     # Step 5: Completion
     echo ""
     print_separator
-    log_success "${COMPONENT_NAME} has been successfully uninstalled!"
+    log_success "$(msgf UNINSTALL_SUCCESS_COMPONENT "$COMPONENT_NAME")"
     echo ""
     
     if [[ "$KEEP_DATA" == true ]]; then
-        log_info "Your data and models have been preserved in: ${COLOR_CYAN}${COMPONENT_DIR}/${COMPONENT_DATA_DIR}${COLOR_RESET}"
-        log_info "You can safely reinstall the component later without losing your data."
+        log_info "$(msg UNINSTALL_DATA_PRESERVED) ${COLOR_CYAN}${COMPONENT_DIR}/${COMPONENT_DATA_DIR}${COLOR_RESET}"
+        log_info "$(msg UNINSTALL_REINSTALL_HINT)"
     else
-        log_warn "All local data, models, and configurations for this component have been permanently deleted."
+        log_warn "$(msg UNINSTALL_DATA_DELETED)"
     fi
     
     echo ""
-    echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-    echo "  • View remaining components: ./ai-studio.sh list"
-    echo "  • Install a different component: ./ai-studio.sh install <component>"
+    echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+    echo "  $(msg UNINSTALL_HINT_LIST)"
+    echo "  $(msg UNINSTALL_HINT_INSTALL_OTHER)"
     echo ""
     print_separator
     

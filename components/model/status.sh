@@ -28,10 +28,10 @@ source "$COMPONENT_DIR/metadata.sh"
 # Check if the model directory exists and is accessible
 check_model_directory() {
     if [[ ! -d "$COMPONENT_DATA_DIR" ]]; then
-        echo -e "  [${COLOR_RED}NOT INITIALIZED${COLOR_RESET}]"
+        echo -e "  [${COLOR_RED}$(msg MODEL_STATUS_NOT_INIT_TAG)${COLOR_RESET}]"
         echo ""
-        echo "  The centralized model directory does not exist yet."
-        echo "  Run: ${COLOR_CYAN}./ai-studio.sh install model${COLOR_RESET}"
+        echo "  $(msg MODEL_STATUS_NO_DIR)"
+        echo "  $(msgf STATUS_HINT_INSTALL "${COLOR_CYAN}./ai-studio.sh install model${COLOR_RESET}")"
         echo ""
         return 1
     fi
@@ -40,10 +40,10 @@ check_model_directory() {
 
 # Generate and print the model inventory table
 print_model_inventory() {
-    echo -e "${COLOR_BOLD}Downloaded MLX Models Inventory:${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}$(msg MODEL_STATUS_INVENTORY)${COLOR_RESET}"
     echo "--------------------------------------------------------------------------------"
     # Use printf for aligned columns: Name (35 chars), Size (10 chars), Status
-    printf "  %-35s | %-10s | %s\n" "MODEL IDENTIFIER" "SIZE" "STATUS"
+    printf "  %-35s | %-10s | %s\n" "$(msg MODEL_TBL_IDENTIFIER)" "$(msg MODEL_TBL_SIZE)" "$(msg MODEL_TBL_STATUS)"
     echo "--------------------------------------------------------------------------------"
 
     local has_models=false
@@ -67,7 +67,7 @@ print_model_inventory() {
         size_human=$(du -sh "$model_dir" 2>/dev/null | awk '{print $1}')
         
         # Integrity check: Look for essential MLX model files
-        local status="${COLOR_GREEN}Ready${COLOR_RESET}"
+        local status="${COLOR_GREEN}$(msg MODEL_STATUS_READY)${COLOR_RESET}"
         local has_config=false
         local has_weights=false
         
@@ -84,22 +84,22 @@ print_model_inventory() {
         fi
 
         if [[ "$has_config" == false ]] && [[ "$has_weights" == false ]]; then
-            status="${COLOR_RED}Incomplete/Corrupted${COLOR_RESET}"
+            status="${COLOR_RED}$(msg MODEL_STATUS_INCOMPLETE)${COLOR_RESET}"
         elif [[ "$has_config" == false ]] || [[ "$has_weights" == false ]]; then
-            status="${COLOR_YELLOW}Partial/Verifying${COLOR_YELLOW}"
+            status="${COLOR_YELLOW}$(msg MODEL_STATUS_PARTIAL)${COLOR_YELLOW}"
         fi
         
         printf "  %-35s | %-10s | %b\n" "$model_name" "$size_human" "$status"
     done
 
     if [[ "$has_models" == false ]]; then
-        echo -e "  ${COLOR_GRAY}(Directory is empty. No models downloaded yet.)${COLOR_RESET}"
+        echo -e "  ${COLOR_GRAY}$(msg MODEL_STATUS_EMPTY)${COLOR_RESET}"
     else
         echo "--------------------------------------------------------------------------------"
         # Convert total bytes to human-readable (GB)
         local total_gb
         total_gb=$(awk "BEGIN {printf \"%.2f\", $total_size_bytes / 1073741824}")
-        echo -e "  ${COLOR_BOLD}Total Storage Used:${COLOR_RESET} ${COLOR_CYAN}${total_gb} GB${COLOR_RESET}"
+        echo -e "  ${COLOR_BOLD}$(msg MODEL_STATUS_TOTAL_USED)${COLOR_RESET} ${COLOR_CYAN}${total_gb} GB${COLOR_RESET}"
     fi
     echo ""
 }
@@ -110,23 +110,23 @@ provide_context_and_actions() {
     local avail_gb
     avail_gb=$(df -g "$COMPONENT_DATA_DIR" 2>/dev/null | awk 'NR==2 {print $4}' | tr -dc '0-9')
     
-    echo -e "${COLOR_BOLD}Storage Context:${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}$(msg MODEL_STATUS_STORAGE_CTX)${COLOR_RESET}"
     if [[ -n "$avail_gb" ]]; then
         if [[ "$avail_gb" -lt 20 ]]; then
-            echo "  ⚠️  Available space on model partition: ${COLOR_RED}${avail_gb} GB${COLOR_RESET} (Low! Large models may fail to download)"
+            echo "  $(msgf MODEL_STATUS_SPACE_LOW "${COLOR_RED}${avail_gb} GB${COLOR_RESET}")"
         else
-            echo "  ✅ Available space on model partition: ${COLOR_GREEN}${avail_gb} GB${COLOR_RESET}"
+            echo "  $(msgf MODEL_STATUS_SPACE_OK "${COLOR_GREEN}${avail_gb} GB${COLOR_RESET}")"
         fi
     fi
     echo ""
 
-    echo -e "${COLOR_BOLD}Next Steps & Management:${COLOR_RESET}"
-    echo "  • Download new models:  ${COLOR_GRAY}./ai-studio.sh install model${COLOR_RESET}"
-    echo "  • Update model weights: ${COLOR_GRAY}./ai-studio.sh update model --target models${COLOR_RESET}"
-    echo "  • Verify integrity:     ${COLOR_GRAY}./ai-studio.sh diagnose model --deep${COLOR_RESET}"
-    echo "  • Remove specific model:${COLOR_GRAY} rm -rf ${COMPONENT_DATA_DIR}/<model_name>${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}$(msg NEXT_STEPS) & $(msg LBL_MANAGEMENT):${COLOR_RESET}"
+    echo "  $(msg MODEL_STATUS_ACTION_DL)  ${COLOR_GRAY}./ai-studio.sh install model${COLOR_RESET}"
+    echo "  $(msg MODEL_STATUS_ACTION_UPDATE) ${COLOR_GRAY}./ai-studio.sh update model --target models${COLOR_RESET}"
+    echo "  $(msg MODEL_STATUS_ACTION_VERIFY)     ${COLOR_GRAY}./ai-studio.sh diagnose model --deep${COLOR_RESET}"
+    echo "  $(msg MODEL_STATUS_ACTION_REMOVE)${COLOR_GRAY} rm -rf ${COMPONENT_DATA_DIR}/<model_name>${COLOR_RESET}"
     echo ""
-    echo -e "${COLOR_GRAY}💡 Tip: This directory is shared across ComfyUI, MLX-Video, and custom scripts to save disk space.${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}$(msg MODEL_STATUS_TIP_SHARED)${COLOR_RESET}"
     echo ""
 }
 
@@ -136,7 +136,7 @@ provide_context_and_actions() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  Status: ${COMPONENT_NAME} (MLX Model Repository)${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msgf BANNER_STATUS "$COMPONENT_NAME") $(msg MODEL_REPO_SUFFIX)${COLOR_RESET}"
     print_separator
     echo ""
 

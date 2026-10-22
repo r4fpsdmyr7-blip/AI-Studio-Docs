@@ -25,13 +25,13 @@ source "$COMPONENT_DIR/metadata.sh"
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_YELLOW}  Stopping: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_YELLOW}  $(msgf BANNER_STOP "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
     # Pre-flight check: Verify if the component is actually running
     if ! is_daemon_running "$COMPONENT_NAME"; then
-        log_info "${COMPONENT_NAME} is not currently running."
+        log_info "$(msgf STOP_NOT_RUNNING "$COMPONENT_NAME")"
         # Clean up any potential stale PID files just in case
         _clear_pid "$COMPONENT_NAME"
         echo ""
@@ -48,22 +48,22 @@ main() {
     if stop_daemon "$COMPONENT_NAME" 15; then
         echo ""
         print_separator
-        log_success "${COMPONENT_NAME} has been stopped successfully."
-        log_info "Port ${COMPONENT_PORT} is now released."
+        log_success "$(msgf STOP_SUCCESS_COMPONENT "$COMPONENT_NAME")"
+        log_info "$(msgf STOP_PORT_RELEASED "$COMPONENT_PORT")"
         echo ""
-        echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-        echo "  • To start it again: ./ai-studio.sh start ${COMPONENT_NAME}"
-        echo "  • To check detailed status: ./ai-studio.sh status ${COMPONENT_NAME}"
+        echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+        echo "  $(msgf STOP_HINT_RESTART "$COMPONENT_NAME")"
+        echo "  $(msgf STOP_HINT_STATUS "$COMPONENT_NAME")"
         print_separator
         exit 0
     else
         echo ""
         print_separator
-        log_error "Failed to stop ${COMPONENT_NAME} cleanly."
-        log_info "The process might be stuck. You can try:"
-        log_info "  1. Check the logs: ${COLOR_GRAY}${AI_STUDIO_ROOT}/logs/${COMPONENT_NAME}.log${COLOR_RESET}"
-        log_info "  2. Force kill the port manually: lsof -ti :${COMPONENT_PORT} | xargs kill -9"
-        log_info "  3. Run deep diagnosis: ./ai-studio.sh diagnose ${COMPONENT_NAME} --deep --fix"
+        log_error "$(msgf STOP_FAILED_CLEAN "$COMPONENT_NAME")"
+        log_info "$(msg STOP_STUCK_HINT)"
+        log_info "$(msgf STOP_STUCK_LOG "$AI_STUDIO_ROOT" "$COMPONENT_NAME")"
+        log_info "$(msgf STOP_STUCK_KILL "$COMPONENT_PORT")"
+        log_info "$(msgf STOP_STUCK_DIAGNOSE "$COMPONENT_NAME")"
         print_separator
         exit 1
     fi

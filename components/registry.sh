@@ -14,6 +14,13 @@ if [[ -z "${COLOR_RESET:-}" ]]; then
     source "$AI_STUDIO_ROOT/lib/common.sh" 2>/dev/null || true
 fi
 
+# Ensure the message layer is available (in case this is sourced independently)
+if [[ -z "${AI_STUDIO_LANG_LOADED:-}" ]]; then
+    _REG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    source "$_REG_DIR/../lib/lang.sh" 2>/dev/null || true
+    unset _REG_DIR
+fi
+
 # ============================================================================
 # 1. Component List Definition
 # ============================================================================
@@ -45,18 +52,26 @@ get_component_port() {
 # Usage: desc=$(get_component_description "open-webui")
 get_component_description() {
     local component="$1"
+    local key="DESC_UNKNOWN"
     case "$component" in
-        open-webui)    echo "Powerful local LLM Web UI" ;;
-        sillytavern)   echo "Advanced LLM roleplay frontend" ;;
-        continue-dev)  echo "AI coding assistant for VS Code/JetBrains" ;;
-        fazm)          echo "Native macOS AI Desktop Agent" ;;
-        browser-use)   echo "AI-driven browser automation tool" ;;
-        mlx)           echo "Apple ML framework for Apple Silicon" ;;
-        comfyui)       echo "Node-based image generation (SDXL/FLUX)" ;;
-        mlx-video)     echo "Efficient local video generation via MLX" ;;
-        qwen3)         echo "Uncensored QWen3 LLM via Ollama" ;;
-        *)             echo "Unknown component" ;;
+        open-webui)    key="DESC_OPEN_WEBUI" ;;
+        sillytavern)   key="DESC_SILLYTAVERN" ;;
+        continue-dev)  key="DESC_CONTINUE_DEV" ;;
+        fazm)          key="DESC_FAZM" ;;
+        browser-use)   key="DESC_BROWSER_USE" ;;
+        mlx)           key="DESC_MLX" ;;
+        comfyui)       key="DESC_COMFYUI" ;;
+        mlx-video)     key="DESC_MLX_VIDEO" ;;
+        model)         key="DESC_MODEL" ;;
+        qwen3)         key="DESC_QWEN3" ;; # 仅有注册项，尚无 components/qwen3/ 目录
     esac
+    # 描述文案与 components/<name>/metadata.sh 共用同一批词条，避免同一组件两套措辞。
+    # 若消息层不可用（registry.sh 被独立 source 且 lib/lang.sh 缺失），退化为组件名本身。
+    if declare -f msg >/dev/null 2>&1; then
+        msg "$key"
+    else
+        printf '%s\n' "$component"
+    fi
 }
 
 # Get the absolute path to the component's directory

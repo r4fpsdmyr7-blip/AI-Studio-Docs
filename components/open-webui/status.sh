@@ -27,16 +27,16 @@ source "$COMPONENT_DIR/metadata.sh"
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  Status: ${COMPONENT_NAME}${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msgf BANNER_STATUS "$COMPONENT_NAME")${COLOR_RESET}"
     print_separator
     echo ""
 
     # --- Check 1: Installation Status ---
     if [[ ! -d "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" ]]; then
-        echo -e "  [${COLOR_RED}NOT INSTALLED${COLOR_RESET}]"
+        echo -e "  [${COLOR_RED}$(msg STATUS_NOT_INSTALLED_TAG)${COLOR_RESET}]"
         echo ""
-        echo "  The component has not been installed yet."
-        echo "  Run: ${COLOR_CYAN}./ai-studio.sh install ${COMPONENT_NAME}${COLOR_RESET}"
+        echo "  $(msg STATUS_NOT_INSTALLED_DESC)"
+        echo "  $(msgf STATUS_HINT_INSTALL "${COLOR_CYAN}./ai-studio.sh install ${COMPONENT_NAME}${COLOR_RESET}")"
         echo ""
         print_separator
         exit 1
@@ -102,7 +102,7 @@ main() {
 
     # --- Check 3: Recent Log Activity (Progressive Disclosure: Level 1) ---
     local log_file="${AI_STUDIO_ROOT}/logs/${COMPONENT_NAME}.log"
-    echo -e "${COLOR_BOLD}Recent Log Activity:${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}$(msg STATUS_RECENT_LOGS)${COLOR_RESET}"
     if [[ -f "$log_file" ]]; then
         # Show last 5 lines, suppress empty lines
         local recent_logs
@@ -110,10 +110,10 @@ main() {
         if [[ -n "$recent_logs" ]]; then
             echo -e "${COLOR_GRAY}${recent_logs}${COLOR_RESET}"
         else
-            echo "    ${COLOR_GRAY}(Log file is empty or contains no recent text)${COLOR_RESET}"
+            echo "    ${COLOR_GRAY}$(msg STATUS_LOG_EMPTY)${COLOR_RESET}"
         fi
     else
-        echo "    ${COLOR_GRAY}(No log file generated yet)${COLOR_RESET}"
+        echo "    ${COLOR_GRAY}$(msg STATUS_NO_LOG)${COLOR_RESET}"
     fi
 
     echo ""
@@ -121,14 +121,14 @@ main() {
     
     # --- Actionable Next Steps ---
     if is_daemon_running "$COMPONENT_NAME"; then
-        echo -e "  ${COLOR_CYAN}Actions:${COLOR_RESET}"
-        echo "    • Stop service:   ${COLOR_GRAY}./ai-studio.sh stop ${COMPONENT_NAME}${COLOR_RESET}"
-        echo "    • View full logs: ${COLOR_GRAY}cat ${AI_STUDIO_ROOT}/logs/${COMPONENT_NAME}.log${COLOR_RESET}"
-        echo "    • Open browser:   ${COLOR_GRAY}open http://localhost:${final_port}${COLOR_RESET}"
+        echo -e "  ${COLOR_CYAN}$(msg ACTIONS_LABEL):${COLOR_RESET}"
+        echo "    $(msg STATUS_ACTION_STOP)   ${COLOR_GRAY}./ai-studio.sh stop ${COMPONENT_NAME}${COLOR_RESET}"
+        echo "    $(msg STATUS_ACTION_LOGS) ${COLOR_GRAY}cat ${AI_STUDIO_ROOT}/logs/${COMPONENT_NAME}.log${COLOR_RESET}"
+        echo "    $(msg STATUS_ACTION_BROWSER)   ${COLOR_GRAY}open http://localhost:${final_port}${COLOR_RESET}"
     else
-        echo -e "  ${COLOR_CYAN}Actions:${COLOR_RESET}"
-        echo "    • Start service:  ${COLOR_GRAY}./ai-studio.sh start ${COMPONENT_NAME}${COLOR_RESET}"
-        echo "    • Run diagnosis:  ${COLOR_GRAY}./ai-studio.sh diagnose ${COMPONENT_NAME}${COLOR_RESET}"
+        echo -e "  ${COLOR_CYAN}$(msg ACTIONS_LABEL):${COLOR_RESET}"
+        echo "    $(msg STATUS_ACTION_START)  ${COLOR_GRAY}./ai-studio.sh start ${COMPONENT_NAME}${COLOR_RESET}"
+        echo "    $(msg STATUS_ACTION_DIAGNOSE)  ${COLOR_GRAY}./ai-studio.sh diagnose ${COMPONENT_NAME}${COLOR_RESET}"
     fi
     echo ""
     print_separator

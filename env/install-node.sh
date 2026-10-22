@@ -38,46 +38,46 @@ check_node_version() {
     major=$(echo "$version_str" | cut -d. -f1)
 
     if [[ "$major" -ge "$MIN_NODE_MAJOR" ]]; then
-        log_info "Node.js v$version_str is installed and meets the minimum requirement (>= v${MIN_NODE_MAJOR})."
+        log_info "$(msgf ENVN_VERSION_OK "$version_str" "$MIN_NODE_MAJOR")"
         return 0
     else
-        log_warn "Found Node.js v$version_str, but version >= v${MIN_NODE_MAJOR} is required."
+        log_warn "$(msgf ENVN_VERSION_LOW "$version_str" "$MIN_NODE_MAJOR")"
         return 1
     fi
 }
 
 # Install Node.js via Homebrew
 install_node_via_brew() {
-    log_info "Installing Node.js (LTS) via Homebrew..."
+    log_info "$(msg ENVN_INSTALLING)"
 
     # Ensure brew is available
     if ! command_exists "brew"; then
-        log_error "Homebrew is required to install Node.js, but it is not found."
-        log_info "Please run './env/install-homebrew.sh' first."
+        log_error "$(msg ENVN_NEED_HOMEBREW)"
+        log_info "$(msg ENVP_HOMEBREW_HINT)"
         return 1
     fi
 
     # Install node
-    log_info "Running: brew install ${TARGET_NODE_VERSION}"
+    log_info "$(msgf ENVN_RUNNING_CMD "$TARGET_NODE_VERSION")"
     if ! brew install "${TARGET_NODE_VERSION}"; then
-        log_error "Failed to install Node.js via Homebrew."
+        log_error "$(msg ENVN_INSTALL_FAILED)"
         return 1
     fi
 
-    log_success "Node.js installed successfully."
+    log_success "$(msg ENVN_INSTALL_OK)"
     return 0
 }
 
 # Ensure essential Node.js packaging tools are up to date and configured
 setup_npm_toolchain() {
-    log_info "Ensuring Node.js packaging toolchain is ready..."
+    log_info "$(msg ENVN_TOOLCHAIN)"
     
     # 1. Update npm to the latest version compatible with the installed Node
-    log_info "Updating npm..."
+    log_info "$(msg ENVN_NPM_UPDATING)"
     if ! npm install -g npm@latest >/dev/null 2>&1; then
-        log_warn "Failed to update npm globally. You may need to run this with sudo or fix npm permissions."
+        log_warn "$(msg ENVN_NPM_FAILED)"
     else
-        log_success "npm updated to latest version."
+        log_success "$(msg ENVN_NPM_OK)"
     fi
 
     # 2. Verify core tools
@@ -91,19 +91,19 @@ setup_npm_toolchain() {
     done
 
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
-        log_error "Core Node.js tools are missing after installation: ${missing_tools[*]}"
-        log_info "You may need to restart your terminal or manually configure your PATH."
+        log_error "$(msgf ENVN_TOOLS_MISSING "${missing_tools[*]}")"
+        log_info "$(msg ENVN_TOOLS_HINT)"
         return 1
     fi
 
-    log_success "Node.js toolchain (node, npm, npx) is verified and ready."
+    log_success "$(msg ENVN_TOOLS_OK)"
     return 0
 }
 
 # Optional: Configure npm to install global packages in user directory to avoid sudo
 # This is a best practice for macOS to prevent permission errors.
 configure_npm_global_prefix() {
-    log_info "Configuring npm to install global packages without sudo..."
+    log_info "$(msg ENVN_NPM_CONFIG)"
     
     local npm_global_dir="$HOME/.npm-global"
     
@@ -122,7 +122,7 @@ configure_npm_global_prefix() {
 
     # Add to PATH if not already present
     if ! grep -q "$npm_global_dir/bin" "$shell_profile" 2>/dev/null; then
-        log_info "Adding npm global bin to your shell profile ($shell_profile)..."
+        log_info "$(msgf ENVN_NPM_PATH_ADDING "$shell_profile")"
         echo "" >> "$shell_profile"
         echo "# Added by AI Studio: npm global packages PATH" >> "$shell_profile"
         echo "export PATH=\"${npm_global_dir}/bin:\$PATH\"" >> "$shell_profile"
@@ -131,7 +131,7 @@ configure_npm_global_prefix() {
         export PATH="${npm_global_dir}/bin:${PATH}"
     fi
     
-    log_success "npm global installation configured safely in user directory."
+    log_success "$(msg ENVN_NPM_PATH_OK)"
 }
 
 # ============================================================================
@@ -140,14 +140,14 @@ configure_npm_global_prefix() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  AI Studio - Node.js Environment Installer${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msg ENVN_BANNER)${COLOR_RESET}"
     print_separator
     echo ""
 
     local exit_code=0
 
     if check_node_version; then
-        log_success "Node.js environment is already healthy."
+        log_success "$(msg ENVN_HEALTHY)"
     else
         install_node_via_brew || exit_code=1
     fi
@@ -162,18 +162,18 @@ main() {
     print_separator
 
     if [[ $exit_code -eq 0 ]]; then
-        log_success "Node.js setup completed successfully."
+        log_success "$(msg ENVN_DONE)"
         echo ""
-        echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-        echo "  Your system is now ready to deploy Web-based AI components."
+        echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+        echo "  $(msg ENVN_NEXT_1)"
         echo "  Run: ./ai-studio.sh install open-webui"
         echo ""
     else
-        log_error "Node.js setup encountered an error."
+        log_error "$(msg ENVN_FAILED)"
         echo ""
-        echo -e "${COLOR_YELLOW}Troubleshooting:${COLOR_RESET}"
-        echo "  1. Check Homebrew status: brew doctor"
-        echo "  2. Ensure you have a stable internet connection."
+        echo -e "${COLOR_YELLOW}$(msg TROUBLESHOOT_LABEL)${COLOR_RESET}"
+        echo "  $(msg ENVN_TS_1)"
+        echo "  $(msg ENVN_TS_2)"
         echo ""
     fi
 

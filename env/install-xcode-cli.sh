@@ -30,22 +30,22 @@ check_xcode_cli() {
         if [[ -x "$cli_path/usr/bin/clang" ]] && [[ -x "$cli_path/usr/bin/make" ]]; then
             local version
             version=$(clang --version | head -n 1 | awk '{print $3, $4}')
-            log_info "Xcode Command Line Tools are installed (Clang ${version})."
+            log_info "$(msgf ENVX_VERSION_OK "$version")"
             return 0
         else
-            log_warn "Xcode CLI path exists, but core tools (clang/make) are missing or broken."
+            log_warn "$(msg ENVX_BROKEN)"
             return 1
         fi
     else
-        log_info "Xcode Command Line Tools are not installed."
+        log_info "$(msg ENVX_NOT_INSTALLED)"
         return 1
     fi
 }
 
 # Trigger the macOS native installation dialog
 trigger_installation() {
-    log_info "Triggering macOS system installer for Command Line Tools..."
-    log_warn "${COLOR_YELLOW}A system dialog will appear shortly. Please click 'Install' and accept the license agreement.${COLOR_RESET}"
+    log_info "$(msg ENVX_TRIGGERING)"
+    log_warn "${COLOR_YELLOW}$(msg ENVX_DIALOG_NOTE)${COLOR_RESET}"
     echo ""
     
     # This command triggers the GUI popup. It returns immediately, but the popup stays on screen.
@@ -54,23 +54,23 @@ trigger_installation() {
     # We must wait for the user to complete the GUI installation.
     # A simple 'read' prompt is the most reliable way to pause the script and let the user catch up.
     echo ""
-    read -r -p "$(echo -e "${COLOR_CYAN}👉 Press [Enter] once the installation window says 'The software was installed'...${COLOR_RESET}")"
+    read -r -p "$(echo -e "${COLOR_CYAN}$(msg ENVX_PROMPT_ENTER)${COLOR_RESET}")"
     
     echo ""
-    log_info "Verifying installation..."
+    log_info "$(msg ENVX_VERIFYING)"
 }
 
 # Attempt to fix a corrupted or stuck CLT installation
 fix_corrupted_cli() {
-    log_warn "Attempting to reset corrupted Command Line Tools installation..."
-    log_info "This requires administrator privileges. You may be prompted for your password."
+    log_warn "$(msg ENVX_RESETTING)"
+    log_info "$(msg ENVX_RESET_PRIVILEGE)"
     
     if sudo rm -rf /Library/Developer/CommandLineTools; then
-        log_success "Old Command Line Tools directory removed."
-        log_info "Please run this script again to trigger a fresh installation."
+        log_success "$(msg ENVX_OLD_REMOVED)"
+        log_info "$(msg ENVX_RERUN)"
         return 0
     else
-        log_error "Failed to remove old Command Line Tools. Please remove manually via Finder or Terminal."
+        log_error "$(msg ENVX_REMOVE_FAILED)"
         return 1
     fi
 }
@@ -81,13 +81,13 @@ fix_corrupted_cli() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  AI Studio - Xcode CLI Installer${COLOR_RESET}"
-    echo -e "${COLOR_GRAY}  Setting up macOS compilation tools for AI dependencies...${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msg ENVX_BANNER)${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}  $(msg ENVX_SUBTITLE)${COLOR_RESET}"
     print_separator
     echo ""
 
     if check_xcode_cli; then
-        log_success "Xcode Command Line Tools are already installed and healthy."
+        log_success "$(msg ENVX_HEALTHY)"
         echo ""
         print_separator
         exit 0
@@ -97,12 +97,12 @@ main() {
     local cli_path
     cli_path=$(xcode-select -p 2>/dev/null)
     if [[ -n "$cli_path" ]] && [[ -d "$cli_path" ]]; then
-        log_warn "Detected a potentially corrupted installation at: $cli_path"
+        log_warn "$(msgf ENVX_CORRUPT_AT "$cli_path")"
         if confirm_action "Do you want to delete it and perform a clean installation?" "Y"; then
             fix_corrupted_cli
             exit $?
         else
-            log_info "Aborting. Please manually fix the installation at $cli_path."
+            log_info "$(msgf ENVX_ABORT "$cli_path")"
             exit 1
         fi
     fi
@@ -114,11 +114,11 @@ main() {
     if check_xcode_cli; then
         echo ""
         print_separator
-        log_success "Xcode Command Line Tools setup completed successfully!"
+        log_success "$(msg ENVX_DONE)"
         echo ""
-        echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-        echo "  Your Mac is now ready to compile AI packages."
-        echo "  Proceed to install Homebrew and other dependencies:"
+        echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+        echo "  $(msg ENVX_NEXT_1)"
+        echo "  $(msg ENVX_NEXT_2)"
         echo "  ./env/install-homebrew.sh"
         echo ""
         print_separator
@@ -126,12 +126,12 @@ main() {
     else
         echo ""
         print_separator
-        log_error "Verification failed. The installation may have been cancelled or failed."
+        log_error "$(msg ENVX_FAILED)"
         echo ""
-        echo -e "${COLOR_YELLOW}Troubleshooting:${COLOR_RESET}"
-        echo "  1. If the popup didn't appear, check System Settings > Software Update."
-        echo "  2. If it says 'Cannot install software', try: sudo rm -rf /Library/Developer/CommandLineTools"
-        echo "  3. Then run this script again: ./env/install-xcode-cli.sh"
+        echo -e "${COLOR_YELLOW}$(msg TROUBLESHOOT_LABEL)${COLOR_RESET}"
+        echo "  $(msg ENVX_TS_1)"
+        echo "  $(msg ENVX_TS_2)"
+        echo "  $(msg ENVX_TS_3)"
         echo ""
         print_separator
         exit 1

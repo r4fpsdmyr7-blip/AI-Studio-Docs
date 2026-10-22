@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AI_STUDIO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$AI_STUDIO_ROOT/lib/common.sh"
 
 # 测试计数器
 TESTS_PASSED=0
@@ -12,34 +13,33 @@ TESTS_FAILED=0
 assert_equals() {
     local expected="$1"
     local actual="$2"
-    local message="${3:-Assertion failed}"
+    local message="${3:-$(msg TEST_ASSERT_FAILED)}"
     
     if [[ "$expected" == "$actual" ]]; then
-        ((TESTS_PASSED++))
-        echo "  ✅ PASS: $message"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+        echo "  $(msgf TEST_PASS "$message")"
     else
-        ((TESTS_FAILED++))
-        echo "  ❌ FAIL: $message"
-        echo "     Expected: $expected"
-        echo "     Actual:   $actual"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+        echo "  $(msgf TEST_FAIL "$message")"
+        echo "     $(msgf TEST_EXPECTED "$expected")"
+        echo "     $(msgf TEST_ACTUAL "$actual")"
     fi
 }
 
 assert_command_exists() {
     local cmd="$1"
     if command -v "$cmd" &>/dev/null; then
-        ((TESTS_PASSED++))
-        echo "  ✅ PASS: Command '$cmd' exists"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+        echo "  $(msgf TEST_PASS "$(msgf TEST_CMD_EXISTS "$cmd")")"
     else
-        ((TESTS_FAILED++))
-        echo "  ❌ FAIL: Command '$cmd' not found"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+        echo "  $(msgf TEST_FAIL "$(msgf TEST_CMD_NOT_FOUND "$cmd")")"
     fi
 }
 
 # 测试用例
 test_common_functions() {
-    echo "Testing common.sh functions..."
-    source "$AI_STUDIO_ROOT/lib/common.sh"
+    echo "$(msg TEST_COMMON_FUNCS)"
     
     # 测试 command_exists
     assert_command_exists "bash"
@@ -50,7 +50,7 @@ test_common_functions() {
 
 # 运行所有测试
 echo "========================================="
-echo "AI Studio Test Suite"
+echo "$(msg TEST_SUITE_TITLE)"
 echo "========================================="
 
 test_common_functions
@@ -59,7 +59,7 @@ test_common_functions
 
 echo ""
 echo "========================================="
-echo "Results: $TESTS_PASSED passed, $TESTS_FAILED failed"
+echo "$(msgf TEST_RESULTS "$TESTS_PASSED" "$TESTS_FAILED")"
 echo "========================================="
 
 [[ $TESTS_FAILED -eq 0 ]]

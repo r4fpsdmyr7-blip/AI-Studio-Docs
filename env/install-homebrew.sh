@@ -20,27 +20,27 @@ source "$AI_STUDIO_ROOT/lib/common.sh"
 # ============================================================================
 
 install_homebrew() {
-    log_info "Checking Homebrew installation status..."
+    log_info "$(msg ENVB_CHECKING)"
 
     # Check if brew is already available in the current PATH
     if command_exists "brew"; then
-        log_success "Homebrew is already installed and available."
+        log_success "$(msg ENVB_ALREADY)"
         
         # Optional: Run a quick update to ensure it's healthy
-        log_info "Running a quick 'brew update' to ensure everything is healthy..."
+        log_info "$(msg ENVB_UPDATING)"
         brew update --quiet >/dev/null 2>&1
         return 0
     fi
 
-    log_warn "Homebrew is not installed or not in the system PATH."
-    log_info "Starting automated Homebrew installation..."
-    log_info "${COLOR_GRAY}(Note: This may prompt for your macOS administrator password)${COLOR_RESET}"
+    log_warn "$(msg ENVB_NOT_FOUND)"
+    log_info "$(msg ENVB_INSTALLING)"
+    log_info "${COLOR_GRAY}$(msg ENVB_PASSWORD_NOTE)${COLOR_RESET}"
     echo ""
 
     # Verify curl is available (required for the installation script)
     if ! command_exists "curl"; then
-        log_error "'curl' is required to download the Homebrew installer but is missing."
-        log_info "Please install curl manually or ensure your system has basic command-line tools."
+        log_error "$(msg ENVB_CURL_MISSING)"
+        log_info "$(msg ENVB_CURL_HINT)"
         return 1
     fi
 
@@ -50,12 +50,12 @@ install_homebrew() {
     local install_status=$?
 
     if [[ $install_status -ne 0 ]]; then
-        log_error "Homebrew installation failed with exit code $install_status."
-        log_info "Please check your network connection or install manually from: https://brew.sh"
+        log_error "$(msgf ENVB_INSTALL_FAILED "$install_status")"
+        log_info "$(msg ENVB_INSTALL_HINT)"
         return 1
     fi
 
-    log_success "Homebrew installed successfully!"
+    log_success "$(msg ENVB_INSTALL_OK)"
     echo ""
 
     # ========================================================================
@@ -70,10 +70,10 @@ install_homebrew() {
     # Determine architecture and set paths
     if is_apple_silicon; then
         brew_path="/opt/homebrew/bin"
-        log_info "Detected Apple Silicon. Homebrew installed to: ${COLOR_CYAN}${brew_path}${COLOR_RESET}"
+        log_info "$(msgf ENVB_APPLE_PATH "${COLOR_CYAN}${brew_path}${COLOR_RESET}")"
     else
         brew_path="/usr/local/bin"
-        log_info "Detected Intel Mac. Homebrew installed to: ${COLOR_CYAN}${brew_path}${COLOR_RESET}"
+        log_info "$(msgf ENVB_INTEL_PATH "${COLOR_CYAN}${brew_path}${COLOR_RESET}")"
     fi
 
     # Determine the user's default shell profile
@@ -85,7 +85,7 @@ install_homebrew() {
 
     # Check if the path is already in the profile
     if ! grep -q "$brew_path" "$shell_profile" 2>/dev/null; then
-        log_info "Adding Homebrew to your shell profile ($shell_profile)..."
+        log_info "$(msgf ENVB_PROFILE_ADDING "$shell_profile")"
         echo "" >> "$shell_profile"
         echo "# Added by AI Studio: Homebrew PATH" >> "$shell_profile"
         echo "eval \"\$(${brew_path}/brew shellenv)\"" >> "$shell_profile"
@@ -93,15 +93,15 @@ install_homebrew() {
         # Apply to the current session immediately
         eval "$(${brew_path}/brew shellenv)"
         
-        log_success "Homebrew PATH configured for current session and future logins."
+        log_success "$(msg ENVB_PROFILE_OK)"
     else
-        log_info "Homebrew PATH already exists in your shell profile."
+        log_info "$(msg ENVB_PROFILE_EXISTS)"
         # Still apply to current session just in case it wasn't loaded
         eval "$(${brew_path}/brew shellenv)"
     fi
 
     echo ""
-    log_info "Verification:"
+    log_info "$(msg ENVB_VERIFY)"
     brew --version | head -n 1
     
     return 0
@@ -113,7 +113,7 @@ install_homebrew() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  AI Studio - Homebrew Installer${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msg ENVB_BANNER)${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -124,14 +124,14 @@ main() {
     print_separator
 
     if [[ $exit_code -eq 0 ]]; then
-        log_success "Homebrew setup completed successfully."
+        log_success "$(msg ENVB_DONE)"
         echo ""
-        echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-        echo "  You can now proceed to install other dependencies:"
+        echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+        echo "  $(msg ENVB_NEXT_INTRO)"
         echo "  ./env/install-deps.sh"
         echo ""
     else
-        log_error "Homebrew setup encountered an error."
+        log_error "$(msg ENVB_FAILED)"
         echo ""
     fi
 

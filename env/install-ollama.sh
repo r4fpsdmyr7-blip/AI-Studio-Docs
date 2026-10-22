@@ -29,84 +29,84 @@ check_ollama() {
     if ollama --version >/dev/null 2>&1; then
         local version
         version=$(ollama --version | awk '{print $3}') # Extract version number
-        log_info "Ollama v${version} is already installed."
+        log_info "$(msgf ENVO_VERSION_OK "$version")"
         return 0
     else
-        log_warn "Ollama command exists but is not responding correctly."
+        log_warn "$(msg ENVO_NOT_RESPONDING)"
         return 1
     fi
 }
 
 # Install Ollama using the official macOS installation script
 install_ollama() {
-    log_info "Starting Ollama installation..."
-    log_info "${COLOR_GRAY}(Note: This will download the official installer and may prompt for your password)${COLOR_RESET}"
+    log_info "$(msg ENVO_INSTALLING)"
+    log_info "${COLOR_GRAY}$(msg ENVO_PASSWORD_NOTE)${COLOR_RESET}"
     echo ""
 
     # Verify curl is available
     if ! command_exists "curl"; then
-        log_error "'curl' is required to download the Ollama installer but is missing."
+        log_error "$(msg ENVO_CURL_MISSING)"
         return 1
     fi
 
     # Execute official installation script
     # The official script handles architecture detection (Apple Silicon vs Intel) automatically
-    log_info "Downloading and executing official Ollama installer..."
+    log_info "$(msg ENVO_DOWNLOADING)"
     if ! curl -fsSL https://ollama.com/install.sh | sh; then
-        log_error "Ollama installation failed."
-        log_info "Please check your network connection or install manually from: https://ollama.com"
+        log_error "$(msg ENVO_INSTALL_FAILED)"
+        log_info "$(msg ENVO_INSTALL_HINT)"
         return 1
     fi
 
-    log_success "Ollama installed successfully!"
+    log_success "$(msg ENVO_INSTALL_OK)"
     return 0
 }
 
 # Ensure the Ollama background service is running
 ensure_ollama_running() {
-    log_info "Verifying Ollama background service status..."
+    log_info "$(msg ENVO_SERVICE_CHECK)"
 
     # On macOS, Ollama runs as a LaunchAgent
     # Check if the service is loaded and running
     if launchctl list | grep -q "ai.ollama.ollama"; then
-        log_success "Ollama service is running in the background."
+        log_success "$(msg ENVO_SERVICE_OK)"
         return 0
     else
-        log_warn "Ollama service is not running. Attempting to start it..."
+        log_warn "$(msg ENVO_SERVICE_DOWN)"
         
         # Try to start the service
         if launchctl start ai.ollama.ollama 2>/dev/null; then
             # Give it a moment to initialize
             sleep 2
             if launchctl list | grep -q "ai.ollama.ollama"; then
-                log_success "Ollama service started successfully."
+                log_success "$(msg ENVO_SERVICE_STARTED)"
                 return 0
             fi
         fi
         
-        log_error "Failed to start Ollama service automatically."
-        log_info "You may need to log out and log back in, or start it manually via Spotlight."
+        log_error "$(msg ENVO_SERVICE_FAILED)"
+        log_info "$(msg ENVO_SERVICE_HINT)"
         return 1
     fi
 }
 
 # Perform a quick functional test
 verify_ollama_functionality() {
-    log_info "Performing quick functionality check..."
+    log_info "$(msg ENVO_FUNC_CHECK)"
     
     # Check if the default port (11434) is listening
     if is_port_in_use 11434; then
-        log_success "Ollama API is listening on port 11434."
+        log_success "$(msg ENVO_API_OK)"
     else
-        log_warn "Ollama port 11434 is not listening. The service might still be starting up."
+        log_warn "$(msg ENVO_API_DOWN)"
     fi
 
     # Try to list models (will be empty on fresh install, but proves API works)
     if ollama list >/dev/null 2>&1; then
-        log_success "Ollama CLI is fully functional."
+        log_success "$(msg ENVO_CLI_OK)"
         return 0
     else
-        log_error "Ollama CLI failed to execute 'ollama list'."
+        log_error "$(msg ENVO_CLI_FAILED)"
         return 1
     fi
 }
@@ -117,15 +117,15 @@ verify_ollama_functionality() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  AI Studio - Ollama Installer${COLOR_RESET}"
-    echo -e "${COLOR_GRAY}  Setting up local LLM execution engine...${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msg ENVO_BANNER)${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}  $(msg ENVO_SUBTITLE)${COLOR_RESET}"
     print_separator
     echo ""
 
     local exit_code=0
 
     if check_ollama; then
-        log_success "Ollama is already installed and healthy."
+        log_success "$(msg ENVO_HEALTHY)"
     else
         install_ollama || exit_code=1
     fi
@@ -139,23 +139,23 @@ main() {
     print_separator
 
     if [[ $exit_code -eq 0 ]]; then
-        log_success "Ollama setup completed successfully."
+        log_success "$(msg ENVO_DONE)"
         echo ""
-        echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-        echo "  1. Pull your first model (e.g., QWen3 or Llama 3):"
+        echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+        echo "  $(msg ENVO_NEXT_1)"
         echo "     ollama pull qwen2.5:7b  # (Example, adjust to your preferred model)"
-        echo "  2. Deploy a UI to interact with it:"
+        echo "  $(msg ENVO_NEXT_2)"
         echo "     ./ai-studio.sh install open-webui"
         echo ""
-        echo -e "${COLOR_GRAY}💡 Tip: Ollama is natively optimized for Apple Silicon (M1/M2/M3/M4)${COLOR_RESET}"
+        echo -e "${COLOR_GRAY}$(msg ENVO_TIP_APPLE)${COLOR_RESET}"
         echo ""
     else
-        log_error "Ollama setup encountered an error."
+        log_error "$(msg ENVO_FAILED)"
         echo ""
-        echo -e "${COLOR_YELLOW}Troubleshooting:${COLOR_RESET}"
-        echo "  1. Ensure you have a stable internet connection."
-        echo "  2. Check if Ollama is running via Activity Monitor or Spotlight."
-        echo "  3. Visit https://ollama.com for manual installation instructions."
+        echo -e "${COLOR_YELLOW}$(msg TROUBLESHOOT_LABEL)${COLOR_RESET}"
+        echo "  $(msg ENVP_TS_1)"
+        echo "  $(msg ENVO_TS_2)"
+        echo "  $(msg ENVO_TS_3)"
         echo ""
     fi
 

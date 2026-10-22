@@ -25,8 +25,8 @@ main() {
     rm -f "${AI_STUDIO_ROOT}/logs/diagnosis_report.tmp" 2>/dev/null
 
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  AI Studio - System Environment Check${COLOR_RESET}"
-    echo -e "${COLOR_GRAY}  Verifying macOS compatibility and dependencies...${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msg ENVC_BANNER)${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}  $(msg ENVC_SUBTITLE)${COLOR_RESET}"
     print_separator
     echo ""
 
@@ -38,19 +38,19 @@ main() {
     print_separator
 
     if [[ $exit_code -eq 0 ]]; then
-        log_success "System check PASSED. Your environment is ready for deployment."
+        log_success "$(msg ENVC_PASSED)"
         echo ""
-        echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-        echo "  1. Install missing dependencies (if any were flagged as recommended):"
+        echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+        echo "  $(msg ENVC_NEXT_1)"
         echo "     ./env/install-deps.sh"
-        echo "  2. Install your first AI component:"
+        echo "  $(msg ENVC_NEXT_2)"
         echo "     ./ai-studio.sh install open-webui"
         echo ""
     else
-        log_error "System check FAILED. Please resolve the issues above before proceeding."
+        log_error "$(msg ENVC_FAILED)"
         echo ""
-        echo -e "${COLOR_YELLOW}Recommended Action:${COLOR_RESET}"
-        echo "  Run the automated environment installer to fix missing dependencies:"
+        echo -e "${COLOR_YELLOW}$(msg ENVC_RECOMMENDED_ACTION)${COLOR_RESET}"
+        echo "  $(msg ENVC_RECOMMENDED_DESC)"
         echo "  ./env/install-deps.sh"
         echo ""
     fi

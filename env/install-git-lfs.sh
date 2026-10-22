@@ -27,68 +27,68 @@ check_git_lfs() {
 
     local version
     version=$(git-lfs --version 2>/dev/null | awk '{print $3}')
-    log_info "Git LFS v${version} is already installed."
+    log_info "$(msgf ENVL_VERSION_OK "$version")"
     return 0
 }
 
 # Install Git LFS via Homebrew
 install_git_lfs() {
-    log_info "Installing Git LFS via Homebrew..."
+    log_info "$(msg ENVL_INSTALLING)"
 
     # Ensure Homebrew is available
     if ! command_exists "brew"; then
-        log_error "Homebrew is required to install Git LFS, but it is not found."
-        log_info "Please run './env/install-homebrew.sh' first."
+        log_error "$(msg ENVL_NEED_HOMEBREW)"
+        log_info "$(msg ENVL_HOMEBREW_HINT)"
         return 1
     fi
 
     # Git LFS requires Git. Install Git if missing.
     if ! command_exists "git"; then
-        log_warn "Git is not detected. Installing Git alongside Git LFS..."
+        log_warn "$(msg ENVL_GIT_MISSING)"
         brew install git >/dev/null 2>&1 || {
-            log_error "Failed to install Git. Git LFS cannot function without it."
+            log_error "$(msg ENVL_GIT_FAILED)"
             return 1
         }
     fi
 
     # Install Git LFS
-    log_info "Running: brew install git-lfs"
+    log_info "$(msg ENVL_RUNNING_CMD)"
     if ! brew install git-lfs; then
-        log_error "Failed to install Git LFS via Homebrew."
+        log_error "$(msg ENVL_INSTALL_FAILED)"
         return 1
     fi
 
-    log_success "Git LFS installed successfully."
+    log_success "$(msg ENVL_INSTALL_OK)"
     return 0
 }
 
 # Configure Git LFS globally (hooks and filters)
 configure_git_lfs() {
-    log_info "Configuring Git LFS globally..."
+    log_info "$(msg ENVL_CONFIGURING)"
     
     # 'git lfs install' sets up Git hooks and global filters in ~/.gitconfig.
     # It is idempotent and safe to run multiple times.
     # We suppress standard output to keep the CLI clean, only caring about the exit code.
     if git lfs install >/dev/null 2>&1; then
-        log_success "Git LFS global hooks and filters configured."
+        log_success "$(msg ENVL_CONFIG_OK)"
         return 0
     else
         # If it fails, it's usually because it's already configured, which is fine.
-        log_debug "Git LFS configuration completed (may already be set up)."
+        log_debug "$(msg ENVL_CONFIG_DONE)"
         return 0
     fi
 }
 
 # Perform a quick functionality verification
 verify_git_lfs() {
-    log_info "Verifying Git LFS functionality..."
+    log_info "$(msg ENVL_VERIFYING)"
     
     # Check version output again to ensure binary is accessible in PATH
     if git-lfs version >/dev/null 2>&1; then
-        log_success "Git LFS is fully functional and ready for large file tracking."
+        log_success "$(msg ENVL_VERIFY_OK)"
         return 0
     else
-        log_error "Git LFS binary verification failed."
+        log_error "$(msg ENVL_VERIFY_FAILED)"
         return 1
     fi
 }
@@ -99,15 +99,15 @@ verify_git_lfs() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  AI Studio - Git LFS Installer${COLOR_RESET}"
-    echo -e "${COLOR_GRAY}  Setting up large file support for AI models & datasets...${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msg ENVL_BANNER)${COLOR_RESET}"
+    echo -e "${COLOR_GRAY}  $(msg ENVL_SUBTITLE)${COLOR_RESET}"
     print_separator
     echo ""
 
     local exit_code=0
 
     if check_git_lfs; then
-        log_success "Git LFS is already installed and healthy."
+        log_success "$(msg ENVL_HEALTHY)"
     else
         install_git_lfs || exit_code=1
     fi
@@ -121,24 +121,24 @@ main() {
     print_separator
 
     if [[ $exit_code -eq 0 ]]; then
-        log_success "Git LFS setup completed successfully."
+        log_success "$(msg ENVL_DONE)"
         echo ""
-        echo -e "${COLOR_CYAN}Next Steps & Usage:${COLOR_RESET}"
-        echo "  Git LFS is now globally configured for your user account."
-        echo "  When cloning repositories containing AI models, LFS files will download automatically."
+        echo -e "${COLOR_CYAN}$(msg NEXT_STEPS) & $(msg LBL_USAGE):${COLOR_RESET}"
+        echo "  $(msg ENVL_NEXT_1)"
+        echo "  $(msg ENVL_NEXT_2)"
         echo ""
-        echo "  Manual LFS operations (if needed):"
-        echo "  • Pull large files manually: git lfs pull"
-        echo "  • Track a new file type:  git lfs track '*.safetensors'"
-        echo "  • List tracked patterns:  git lfs track"
+        echo "  $(msg ENVL_MANUAL_TITLE)"
+        echo "  - $(msg ENVL_MANUAL_PULL)"
+        echo "  - $(msg ENVL_MANUAL_TRACK)"
+        echo "  - $(msg ENVL_MANUAL_LIST)"
         echo ""
     else
-        log_error "Git LFS setup encountered an error."
+        log_error "$(msg ENVL_FAILED)"
         echo ""
-        echo -e "${COLOR_YELLOW}Troubleshooting:${COLOR_RESET}"
-        echo "  1. Ensure Homebrew is installed and up to date: brew doctor"
-        echo "  2. Verify Git installation: git --version"
-        echo "  3. Visit https://git-lfs.com for manual installation instructions."
+        echo -e "${COLOR_YELLOW}$(msg TROUBLESHOOT_LABEL)${COLOR_RESET}"
+        echo "  $(msg ENVL_TS_1)"
+        echo "  $(msg ENVL_TS_2)"
+        echo "  $(msg ENVL_TS_3)"
         echo ""
     fi
 

@@ -13,8 +13,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# 加载消息层，使测试输出与项目 UI 语言一致
+source "$PROJECT_ROOT/lib/lang.sh" 2>/dev/null || true
+
 echo "=========================================="
-echo "  Running ShellCheck on AI Studio scripts"
+echo "  $(msg TEST_SHELLCHECK_RUNNING)"
 echo "=========================================="
 echo ""
 
@@ -32,9 +35,9 @@ done < <(find "$PROJECT_ROOT" -name "*.sh" -type f -not -path "*/.venv/*" -print
 echo ""
 echo "=========================================="
 if [[ $FAILED -eq 0 ]]; then
-    echo "✅ All scripts passed ShellCheck!"
+    echo "$(msg TEST_SHELLCHECK_OK)"
     exit 0
 else
-    echo "❌ Some scripts failed ShellCheck. Please fix the issues above."
+    echo "$(msg TEST_SHELLCHECK_FAILED)"
     exit 1
 fi

@@ -41,33 +41,33 @@ check_python_version() {
 
     if [[ "$major" -gt "$MIN_PYTHON_MAJOR" ]] || \
        { [[ "$major" -eq "$MIN_PYTHON_MAJOR" ]] && [[ "$minor" -ge "$MIN_PYTHON_MINOR" ]]; }; then
-        log_info "Python $version_str is installed and meets the minimum requirement (>= ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR})."
+        log_info "$(msgf ENVP_VERSION_OK "$version_str" "$MIN_PYTHON_MAJOR" "$MIN_PYTHON_MINOR")"
         return 0
     else
-        log_warn "Found Python $version_str, but version >= ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR} is required."
+        log_warn "$(msgf ENVP_VERSION_LOW "$version_str" "$MIN_PYTHON_MAJOR" "$MIN_PYTHON_MINOR")"
         return 1
     fi
 }
 
 # Install Python via Homebrew
 install_python_via_brew() {
-    log_info "Installing Python ${TARGET_PYTHON_VERSION} via Homebrew..."
+    log_info "$(msgf ENVP_INSTALLING "$TARGET_PYTHON_VERSION")"
 
     # Ensure brew is available
     if ! command_exists "brew"; then
-        log_error "Homebrew is required to install Python, but it is not found."
-        log_info "Please run './env/install-homebrew.sh' first."
+        log_error "$(msg ENVP_NEED_HOMEBREW)"
+        log_info "$(msg ENVP_HOMEBREW_HINT)"
         return 1
     fi
 
     # Install specific Python version
-    log_info "Running: brew install python@${TARGET_PYTHON_VERSION}"
+    log_info "$(msgf ENVP_RUNNING_CMD "$TARGET_PYTHON_VERSION")"
     if ! brew install "python@${TARGET_PYTHON_VERSION}"; then
-        log_error "Failed to install Python ${TARGET_PYTHON_VERSION} via Homebrew."
+        log_error "$(msgf ENVP_INSTALL_FAILED "$TARGET_PYTHON_VERSION")"
         return 1
     fi
 
-    log_success "Python ${TARGET_PYTHON_VERSION} installed successfully."
+    log_success "$(msgf ENVP_INSTALL_OK "$TARGET_PYTHON_VERSION")"
     
     # Handle Homebrew's keg-only nature for python@3.11
     # We need to ensure it's accessible as 'python3' in the current session and future sessions
@@ -80,7 +80,7 @@ configure_python_path() {
     brew_prefix=$(brew --prefix "python@${TARGET_PYTHON_VERSION}" 2>/dev/null)
     
     if [[ -z "$brew_prefix" ]] || [[ ! -d "$brew_prefix" ]]; then
-        log_warn "Could not determine Homebrew prefix for Python. You may need to configure PATH manually."
+        log_warn "$(msg ENVP_PREFIX_UNKNOWN)"
         return 1
     fi
 
@@ -95,9 +95,9 @@ configure_python_path() {
 
     # Check if already configured
     if grep -q "$python_bin_dir" "$shell_profile" 2>/dev/null; then
-        log_info "Python PATH is already configured in $shell_profile."
+        log_info "$(msgf ENVP_PATH_EXISTS "$shell_profile")"
     else
-        log_info "Adding Python ${TARGET_PYTHON_VERSION} to your shell profile ($shell_profile)..."
+        log_info "$(msgf ENVP_PATH_ADDING "$TARGET_PYTHON_VERSION" "$shell_profile")"
         echo "" >> "$shell_profile"
         echo "# Added by AI Studio: Python ${TARGET_PYTHON_VERSION} PATH" >> "$shell_profile"
         echo "export PATH=\"${python_bin_dir}:\$PATH\"" >> "$shell_profile"
@@ -108,29 +108,29 @@ configure_python_path() {
     
     # Verify the active python3 is now the correct one
     if check_python_version; then
-        log_success "Python environment configured and activated for the current session."
+        log_success "$(msg ENVP_PATH_OK)"
     else
-        log_warn "Python PATH updated, but version check still shows old version. You may need to restart your terminal."
+        log_warn "$(msg ENVP_PATH_OLD)"
     fi
 }
 
 # Ensure essential Python packaging tools are up to date
 setup_python_toolchain() {
-    log_info "Ensuring Python packaging toolchain is up to date..."
+    log_info "$(msg ENVP_TOOLCHAIN)"
     
     # Upgrade pip, setuptools, and wheel (essential for building AI dependencies)
     if ! python3 -m pip install --upgrade --quiet pip setuptools wheel; then
-        log_warn "Failed to upgrade pip/setuptools/wheel. Some component installations might require manual intervention."
+        log_warn "$(msg ENVP_TOOLCHAIN_FAILED)"
     else
-        log_success "Python packaging toolchain (pip, setuptools, wheel) is ready."
+        log_success "$(msg ENVP_TOOLCHAIN_OK)"
     fi
 
     # Verify venv module is available (critical for component isolation)
     if ! python3 -m venv --help >/dev/null 2>&1; then
-        log_error "Python 'venv' module is missing. This is required for isolated component environments."
+        log_error "$(msg ENVP_VENV_MISSING)"
         return 1
     fi
-    log_success "Python virtual environment (venv) support is verified."
+    log_success "$(msg ENVP_VENV_OK)"
     
     return 0
 }
@@ -141,14 +141,14 @@ setup_python_toolchain() {
 
 main() {
     print_separator
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  AI Studio - Python Environment Installer${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $(msg ENVP_BANNER)${COLOR_RESET}"
     print_separator
     echo ""
 
     local exit_code=0
 
     if check_python_version; then
-        log_success "Python environment is already healthy."
+        log_success "$(msg ENVP_HEALTHY)"
         # Still ensure toolchain is ready even if version is OK
         setup_python_toolchain || exit_code=1
     else
@@ -163,19 +163,19 @@ main() {
     print_separator
 
     if [[ $exit_code -eq 0 ]]; then
-        log_success "Python setup completed successfully."
+        log_success "$(msg ENVP_DONE)"
         echo ""
-        echo -e "${COLOR_CYAN}Next Steps:${COLOR_RESET}"
-        echo "  You can now proceed to install other core dependencies:"
+        echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
+        echo "  $(msg ENVP_NEXT_INTRO)"
         echo "  ./env/install-nodejs.sh  (if needed for Web UIs)"
         echo "  ./env/install-ollama.sh  (for local LLM execution)"
         echo ""
     else
-        log_error "Python setup encountered an error."
+        log_error "$(msg ENVP_FAILED)"
         echo ""
-        echo -e "${COLOR_YELLOW}Troubleshooting:${COLOR_RESET}"
-        echo "  1. Ensure you have a stable internet connection."
-        echo "  2. Check if Xcode Command Line Tools are installed: xcode-select --install"
+        echo -e "${COLOR_YELLOW}$(msg TROUBLESHOOT_LABEL)${COLOR_RESET}"
+        echo "  $(msg ENVP_TS_1)"
+        echo "  $(msg ENVP_TS_2)"
         echo ""
     fi
 

@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# ============================================================================
+# DEPRECATED - ORPHANED CODE (not wired into the main program)
+#
+# This file belongs to an abandoned command-dispatch layer. It is NOT
+# referenced by ai-studio.sh or any active lib/ module, and it references
+# symbols that do not exist (load_libs, REGISTERED_COMPONENTS, CLR_*,
+# AI_STUDIO_DATA_DIR, ...), so it cannot run as-is.
+# Kept for historical reference only.
+#
+# The active architecture is:
+#   ai-studio.sh -> lib/*.sh -> components/registry.sh -> components/<name>/
+#
+# Do NOT build new features on top of this file. See AGENTS.md for details.
+# ============================================================================
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/common.sh"; load_libs; load_all_components

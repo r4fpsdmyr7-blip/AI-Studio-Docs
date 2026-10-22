@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# ============================================================================
+# DEPRECATED - ORPHANED CODE (not wired into the main program)
+#
+# This file belongs to an abandoned command-dispatch layer. It is NOT
+# referenced by ai-studio.sh or any active lib/ module, and it references
+# symbols that do not exist (load_libs, REGISTERED_COMPONENTS, CLR_*,
+# AI_STUDIO_DATA_DIR, ...), so it cannot run as-is.
+# Kept for historical reference only.
+#
+# The active architecture is:
+#   ai-studio.sh -> lib/*.sh -> components/registry.sh -> components/<name>/
+#
+# Do NOT build new features on top of this file. See AGENTS.md for details.
+# ============================================================================
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/common.sh"; load_libs; load_all_components
@@ -13,8 +27,8 @@ cmd_diagnose() {
     echo -e "  磁盘: $(df -h "$AI_STUDIO_HOME" 2>/dev/null | tail -1 | awk '{print $4 " 可用"}' || echo 'N/A')"
     echo ""; info_box "2. 依赖检查"
     for dep in git curl python3 node npm pip3 brew ollama docker; do
-        if check_command "$dep"; then echo -e "  ${CLR_GREEN}✓${CLR_RESET} $dep: $($dep --version 2>&1 | head -1)"
-        else echo -e "  ${CLR_RED}✗${CLR_RESET} $dep: 未安装"; ((issues++)); fi
+        if check_command "$dep"; then echo -e "  ${CLR_GREEN}[OK]${CLR_RESET} $dep: $($dep --version 2>&1 | head -1)"
+        else echo -e "  ${CLR_RED}[FAIL]${CLR_RESET} $dep: 未安装"; ((issues++)); fi
     done
     echo ""; info_box "3. Python 环境"
     if check_command python3; then
@@ -29,13 +43,13 @@ cmd_diagnose() {
     echo ""; info_box "5. 组件状态"
     for comp in "${REGISTERED_COMPONENTS[@]}"; do
         if is_comp_installed "$comp"; then
-            is_running "$comp" && echo -e "  ${CLR_GREEN}✓${CLR_RESET} $comp: 已安装, 运行中" || echo -e "  ${CLR_YELLOW}○${CLR_RESET} $comp: 已安装, 已停止"
+            is_running "$comp" && echo -e "  ${CLR_GREEN}[OK]${CLR_RESET} $comp: 已安装, 运行中" || echo -e "  ${CLR_YELLOW}○${CLR_RESET} $comp: 已安装, 已停止"
         else echo -e "  ${CLR_DIM}○${CLR_RESET} $comp: 未安装"; fi
     done
     echo ""; info_box "6. 端口检查"
     for comp in "${REGISTERED_COMPONENTS[@]}"; do
         local port; port="$(get_comp_info "$comp" "PORT")"; [[ -z "$port" ]] && continue
-        is_port_free "$port" && echo -e "  ${CLR_GREEN}✓${CLR_RESET} $port ($comp): 空闲" || { echo -e "  ${CLR_RED}✗${CLR_RESET} $port ($comp): 被占用"; ((issues++)); }
+        is_port_free "$port" && echo -e "  ${CLR_GREEN}[OK]${CLR_RESET} $port ($comp): 空闲" || { echo -e "  ${CLR_RED}[FAIL]${CLR_RESET} $port ($comp): 被占用"; ((issues++)); }
     done
     echo ""
     ((issues == 0)) && success_box "诊断完成: 无问题" || log_warn "发现 $issues 个问题"

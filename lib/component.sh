@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# ============================================================================
+# DEPRECATED - ORPHANED CODE (not wired into the main program)
+#
+# This file belongs to an abandoned command-dispatch layer. It is NOT
+# referenced by ai-studio.sh or any active lib/ module, and it references
+# symbols that do not exist (load_libs, REGISTERED_COMPONENTS, CLR_*,
+# AI_STUDIO_DATA_DIR, ...), so it cannot run as-is.
+# Kept for historical reference only.
+#
+# The active architecture is:
+#   ai-studio.sh -> lib/*.sh -> components/registry.sh -> components/<name>/
+#
+# Do NOT build new features on top of this file. See AGENTS.md for details.
+# ============================================================================
 declare -a REGISTERED_COMPONENTS=()
 register_component() { local n="$1"; [[ ! " ${REGISTERED_COMPONENTS[*]} " =~ " ${n} " ]] && { REGISTERED_COMPONENTS+=("$n"); log_debug "注册: $n"; }; }
 load_component() {
@@ -12,7 +26,15 @@ load_all_components() {
     done
     log_debug "已加载 ${#REGISTERED_COMPONENTS[@]} 个组件"
 }
-get_comp_info() { local var="${1^^}_COMP_${2}"; var="${var//-/_}"; echo "${!var:-}"; }
+get_comp_info() {
+    # Uppercase via 'tr' for Bash 3.2 compatibility
+    # (parameter-expansion case conversion requires Bash 4.0+)
+    local prefix
+    prefix="$(echo "$1" | tr '[:lower:]' '[:upper:]')"
+    local var="${prefix}_COMP_${2}"
+    var="${var//-/_}"
+    echo "${!var:-}"
+}
 comp_do() {
     local name="$1" action="$2"; shift 2
     component_exists "$name" || load_component "$name" || return 1

@@ -52,7 +52,7 @@ install_ollama() {
     # Execute official installation script
     # The official script handles architecture detection (Apple Silicon vs Intel) automatically
     log_info "$(msg ENVO_DOWNLOADING)"
-    if ! curl -fsSL https://ollama.com/install.sh | sh; then
+    if ! run_remote_installer "https://ollama.com/install.sh"; then
         log_error "$(msg ENVO_INSTALL_FAILED)"
         log_info "$(msg ENVO_INSTALL_HINT)"
         return 1

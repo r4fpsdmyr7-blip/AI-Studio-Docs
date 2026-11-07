@@ -16,8 +16,7 @@ install_homebrew() {
     fi
     log_info "$(msg ENVINSTALL_HOMEBREW_INSTALLING)"
     
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    if [ $? -ne 0 ]; then
+    if ! run_remote_installer "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"; then
         log_error "$(msg ENVINSTALL_HOMEBREW_FAILED)"
         return 1
     fi
@@ -47,7 +46,9 @@ install_basic_tools() {
     fi
 
     log_info "$(msgf ENVINSTALL_BASIC_INSTALLING "$tools_to_install")"
-    brew install $tools_to_install
+    local -a pkgs
+    read -r -a pkgs <<< "$tools_to_install"
+    brew install "${pkgs[@]}"
     if [ $? -ne 0 ]; then
         log_error "$(msg ENVINSTALL_BASIC_FAILED)"
         return 1
@@ -88,8 +89,7 @@ install_ai_tools() {
     log_info "$(msg ENVINSTALL_AI_CHECK)"
     if ! command_exists "ollama"; then
         log_info "$(msg ENVINSTALL_OLLAMA_INSTALLING)"
-        curl -fsSL https://ollama.com/install.sh | sh
-        if [ $? -ne 0 ]; then
+        if ! run_remote_installer "https://ollama.com/install.sh"; then
             log_error "$(msg ENVINSTALL_OLLAMA_FAILED)"
             return 1
         fi
@@ -158,7 +158,9 @@ install_component_deps() {
     fi
 
     log_info "$(msgf ENVINSTALL_DEPS_INSTALLING "$component" "$missing_deps")"
-    brew install $missing_deps
+    local -a dep_pkgs
+    read -r -a dep_pkgs <<< "$missing_deps"
+    brew install "${dep_pkgs[@]}"
     if [ $? -ne 0 ]; then
         log_error "$(msgf ENVINSTALL_DEPS_FAILED "$component")"
         return 1

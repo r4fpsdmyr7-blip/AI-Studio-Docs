@@ -26,25 +26,30 @@ fi
 # ============================================================================
 # Space-separated list of all supported components. 
 # Keep this updated when adding new components.
-readonly SUPPORTED_COMPONENTS="open-webui sillytavern continue-dev fazm browser-use mlx comfyui mlx-video qwen3"
+readonly SUPPORTED_COMPONENTS="open-webui sillytavern continue-dev fazm browser-use mlx comfyui mlx-video qwen3 model"
 
 # ============================================================================
 # 2. Metadata Retrieval Functions (Bash 3.2 Compatible)
 # ============================================================================
 
-# Get the default network port for a specific component
+# Get the default network port for a specific component.
+# Single source of truth: the COMPONENT_PORT field in components/<name>/metadata.sh
+# (parsed textually — sourcing multiple metadata.sh files in one process would
+# collide on their `readonly` declarations).
 # Usage: port=$(get_component_port "comfyui")
 get_component_port() {
     local component="$1"
+    local meta value
+    meta="$(get_component_dir "$component")/metadata.sh"
+    if [[ -f "$meta" ]]; then
+        value=$(sed -n 's/^readonly COMPONENT_PORT="\([^"]*\)".*/\1/p' "$meta" | head -1)
+        printf '%s\n' "$value"
+        return 0
+    fi
+    # Components without metadata.sh yet (e.g. qwen3 has no directory)
     case "$component" in
-        open-webui)    echo "3000" ;;
-        sillytavern)   echo "8000" ;;
-        browser-use)   echo "7788" ;;
-        comfyui)       echo "8188" ;;
-        qwen3)         echo "11434" ;; # Ollama default port
-        # Components without a standalone network port return empty string
-        continue-dev|fazm|mlx|mlx-video) echo "" ;;
-        *)             echo "" ;;
+        qwen3)         printf '11434\n' ;; # Ollama default port
+        *)             printf '\n' ;;
     esac
 }
 
@@ -105,18 +110,17 @@ get_all_components() {
 }
 
 # Check if a component is currently installed
-# Logic: A component is considered "installed" if its directory exists 
-# and contains the mandatory 'metadata.sh' or 'install.sh' script.
+# Logic: A component counts as installed only when its install.sh completed
+# successfully and left the marker file components/<name>/.installed
+# (uninstall.sh removes it). Previously this checked for install.sh presence,
+# which reflected "implemented" rather than "installed".
 # Usage: if is_component_installed "open-webui"; then ...
 is_component_installed() {
     local component="$1"
     local comp_dir
     comp_dir=$(get_component_dir "$component")
-    
-    if [[ -d "$comp_dir" ]] && [[ -f "${comp_dir}/install.sh" ]]; then
-        return 0
-    fi
-    return 1
+
+    [[ -f "${comp_dir}/.installed" ]]
 }
 
 # Check if a component is currently running

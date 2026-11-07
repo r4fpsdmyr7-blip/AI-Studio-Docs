@@ -111,10 +111,29 @@ wait_for_port() {
             return 1
         fi
         sleep 1
-        ((elapsed++))
+        elapsed=$((elapsed + 1))
     done
     log_success "$(msgf LIB_PORT_READY "$port")"
     return 0
+}
+
+# Download a remote installer script to a temp file, print its SHA256 for
+# auditing, then execute it. Never pipes a remote script straight into a shell.
+# Usage: run_remote_installer "https://example.com/install.sh"
+run_remote_installer() {
+    local url="$1"
+    local tmp rc hash
+    tmp="$(mktemp -t ai-studio-installer.XXXXXX)" || return 1
+    if ! curl -fsSL "$url" -o "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    hash=$(shasum -a 256 "$tmp" | awk '{print $1}')
+    log_info "$(msgf LIB_REMOTE_SHA256 "$hash")"
+    /bin/bash "$tmp"
+    rc=$?
+    rm -f "$tmp"
+    return $rc
 }
 
 # Require sudo privileges for the current operation, or exit with an error

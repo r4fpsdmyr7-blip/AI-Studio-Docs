@@ -99,11 +99,72 @@ handle_env_command() {
     fi
 }
 
+# Run one lifecycle command across all registered components, aggregating
+# failures instead of stopping at the first one.
+# Usage: run_batch install [extra args...]
+# Returns: 0 if every component succeeded, 1 otherwise.
+run_batch() {
+    local cmd="$1"
+    if [[ $# -ge 1 ]]; then shift 1; fi
+    local failed=0 comp script
+
+    for comp in $(get_all_components); do
+        script="$AI_STUDIO_ROOT/components/$comp/${cmd}.sh"
+
+        if [[ "$cmd" == "restart" ]]; then
+            # restart is implemented inline as stop + start; no restart.sh needed
+            if [[ ! -f "$AI_STUDIO_ROOT/components/$comp/stop.sh" ]] || [[ ! -f "$AI_STUDIO_ROOT/components/$comp/start.sh" ]]; then
+                log_warn "$(msgf BATCH_SCRIPT_MISSING "$comp" "stop.sh/start.sh")"
+                failed=$((failed + 1))
+                continue
+            fi
+            log_info "$(msgf RESTARTING_COMPONENT "$comp")"
+            "$AI_STUDIO_ROOT/components/$comp/stop.sh" "$@" || failed=$((failed + 1))
+            sleep 2
+            "$AI_STUDIO_ROOT/components/$comp/start.sh" "$@" || failed=$((failed + 1))
+            continue
+        fi
+
+        if [[ ! -f "$script" ]]; then
+            log_warn "$(msgf BATCH_SCRIPT_MISSING "$comp" "${cmd}.sh")"
+            failed=$((failed + 1))
+            continue
+        fi
+
+        case "$cmd" in
+            install)   log_info "$(msgf INSTALLING_COMPONENT "$comp")" ;;
+            start)     log_info "$(msgf STARTING_COMPONENT "$comp")" ;;
+            stop)      log_info "$(msgf STOPPING_COMPONENT "$comp")" ;;
+            update)    log_info "$(msgf UPDATING_COMPONENT "$comp")" ;;
+            uninstall) log_info "$(msgf UNINSTALLING_COMPONENT "$comp")" ;;
+            diagnose)  log_info "$(msgf DIAGNOSING_COMPONENT "$comp")" ;;
+        esac
+        "$script" "$@" || failed=$((failed + 1))
+    done
+
+    if [[ $failed -gt 0 ]]; then
+        log_error "$(msgf BATCH_SUMMARY_FAIL "$failed")"
+        return 1
+    fi
+    log_info "$(msg BATCH_SUMMARY_OK)"
+    return 0
+}
+
 handle_component_command() {
     local command="$1"
-    local component="$2"
-    shift 2 || true # Shift safely
-    
+    local component="${2:-}"
+    if [[ $# -ge 2 ]]; then shift 2; elif [[ $# -eq 1 ]]; then shift 1; fi
+
+    # 'status' without a component name lists all components
+    if [[ -z "$component" ]]; then
+        if [[ "$command" == "status" ]]; then
+            list_components
+            return 0
+        fi
+        log_error "$(msg MISSING_COMPONENT_ARG)"
+        return 1
+    fi
+
     # Validate component name
     if [[ "$component" != "all" ]]; then
         if ! is_valid_component "$component"; then
@@ -112,94 +173,71 @@ handle_component_command() {
             exit 1
         fi
     fi
-    
-    # Get component script path
-    local component_dir="$AI_STUDIO_ROOT/components/$component"
-    local script_path="$component_dir/${command}.sh"
-    
-    # Check if script exists (skip for 'all' operations)
-    if [[ "$component" != "all" ]] && [[ ! -f "$script_path" ]]; then
+
+    # Batch operations over all components (with failure aggregation)
+    if [[ "$component" == "all" ]]; then
+        case "$command" in
+            install)   log_info "$(msg INSTALL_ALL)" ;;
+            start)     log_info "$(msg START_ALL)" ;;
+            stop)      log_info "$(msg STOP_ALL)" ;;
+            restart)   log_info "$(msg RESTART_ALL)" ;;
+            status)    list_components; return 0 ;;
+            update)    log_info "$(msg UPDATE_ALL)" ;;
+            uninstall) log_info "$(msg UNINSTALL_ALL)" ;;
+            diagnose)  log_info "$(msg DIAGNOSE_ALL)" ;;
+        esac
+        run_batch "$command" "$@"
+        return $?
+    fi
+
+    # Single-component operations
+    local script_path="$AI_STUDIO_ROOT/components/$component/${command}.sh"
+
+    # restart is implemented inline (stop + start); do not require restart.sh
+    if [[ "$command" != "restart" ]] && [[ ! -f "$script_path" ]]; then
         log_error "$(msgf COMPONENT_OP_UNSUPPORTED "$component" "$command")"
         exit 1
     fi
-    
-    # Execute component script based on command
-    if [[ "$command" == "install" ]]; then
-        if [[ "$component" == "all" ]]; then
-            log_info "$(msg INSTALL_ALL)"
-            for comp in $(get_all_components); do
-                log_info "$(msgf INSTALLING_COMPONENT "$comp")"
-                "$AI_STUDIO_ROOT/components/$comp/install.sh" "$@"
-            done
-        else
+
+    case "$command" in
+        install)
             log_info "$(msgf INSTALLING_COMPONENT "$component")"
             "$script_path" "$@"
-        fi
-    elif [[ "$command" == "start" ]]; then
-        if [[ "$component" == "all" ]]; then
-            log_info "$(msg START_ALL)"
-            for comp in $(get_all_components); do
-                log_info "$(msgf STARTING_COMPONENT "$comp")"
-                "$AI_STUDIO_ROOT/components/$comp/start.sh" "$@"
-            done
-        else
+            ;;
+        start)
             log_info "$(msgf STARTING_COMPONENT "$component")"
             "$script_path" "$@"
-            # Note: The component's start.sh already handles opening the browser 
-        fi
-    elif [[ "$command" == "stop" ]]; then
-        if [[ "$component" == "all" ]]; then
-            log_info "$(msg STOP_ALL)"
-            for comp in $(get_all_components); do
-                log_info "$(msgf STOPPING_COMPONENT "$comp")"
-                "$AI_STUDIO_ROOT/components/$comp/stop.sh" "$@"
-            done
-        else
+            ;;
+        stop)
             log_info "$(msgf STOPPING_COMPONENT "$component")"
             "$script_path" "$@"
-        fi
-    elif [[ "$command" == "restart" ]]; then
-        if [[ "$component" == "all" ]]; then
-            log_info "$(msg RESTART_ALL)"
-            for comp in $(get_all_components); do
-                log_info "$(msgf RESTARTING_COMPONENT "$comp")"
-                "$AI_STUDIO_ROOT/components/$comp/stop.sh" "$@"
-                sleep 2
-                "$AI_STUDIO_ROOT/components/$comp/start.sh" "$@"
-            done
-        else
+            ;;
+        restart)
             log_info "$(msgf RESTARTING_COMPONENT "$component")"
             "$AI_STUDIO_ROOT/components/$component/stop.sh" "$@"
             sleep 2
             "$AI_STUDIO_ROOT/components/$component/start.sh" "$@"
-        fi
-    elif [[ "$command" == "status" ]]; then
-        if [[ -z "$component" ]] || [[ "$component" == "all" ]]; then
-            list_components # Fixed: was show_all_components_status
-        else
+            ;;
+        status)
             "$script_path" "$@"
-        fi
-    elif [[ "$command" == "update" ]]; then
-        if [[ "$component" == "all" ]]; then
-            log_info "$(msg UPDATE_ALL)"
-            for comp in $(get_all_components); do
-                log_info "$(msgf UPDATING_COMPONENT "$comp")"
-                "$AI_STUDIO_ROOT/components/$comp/update.sh" "$@"
-            done
-        else
+            ;;
+        update)
             log_info "$(msgf UPDATING_COMPONENT "$component")"
             "$script_path" "$@"
-        fi
-    elif [[ "$command" == "uninstall" ]]; then
-        log_info "$(msgf UNINSTALLING_COMPONENT "$component")"
-        "$script_path" "$@"
-    elif [[ "$command" == "diagnose" ]]; then
-        log_info "$(msgf DIAGNOSING_COMPONENT "$component")"
-        "$script_path" "$@"
-    else
-        log_error "$(msg UNKNOWN_COMMAND): $command"
-        exit 1
-    fi
+            ;;
+        uninstall)
+            log_info "$(msgf UNINSTALLING_COMPONENT "$component")"
+            "$script_path" "$@"
+            ;;
+        diagnose)
+            log_info "$(msgf DIAGNOSING_COMPONENT "$component")"
+            "$script_path" "$@"
+            ;;
+        *)
+            log_error "$(msg UNKNOWN_COMMAND): $command"
+            exit 1
+            ;;
+    esac
 }
 
 list_components() {
@@ -288,7 +326,7 @@ main() {
     elif [[ "$command" == "lang" ]]; then
         lang_command "$@"
     elif [[ "$command" == "install" ]] || [[ "$command" == "start" ]] || [[ "$command" == "stop" ]] || [[ "$command" == "restart" ]] || [[ "$command" == "status" ]] || [[ "$command" == "update" ]] || [[ "$command" == "uninstall" ]] || [[ "$command" == "diagnose" ]]; then
-        if [[ $# -eq 0 ]]; then
+        if [[ $# -eq 0 ]] && [[ "$command" != "status" ]]; then
             log_error "$(msg MISSING_COMPONENT_ARG)"
             show_help
             exit 1

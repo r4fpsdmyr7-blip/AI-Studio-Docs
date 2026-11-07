@@ -45,8 +45,8 @@ install_homebrew() {
     fi
 
     # Execute the official Homebrew installation script
-    # -f: fail silently on server errors, -s: silent mode, -S: show errors, -L: follow redirects
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Downloaded to a temp file first; its SHA256 is printed for auditing
+    run_remote_installer "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
     local install_status=$?
 
     if [[ $install_status -ne 0 ]]; then

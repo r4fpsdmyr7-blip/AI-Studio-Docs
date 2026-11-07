@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # ------------------------------------------------------------------
       # 1. 语法检查：任何脚本有语法错误就直接阻断

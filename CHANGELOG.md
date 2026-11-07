@@ -15,6 +15,27 @@
 
 ### Fixed
 
+- **卸载会删掉整个组件目录（数据丢失级）**：`open-webui` / `mlx` / `browser-use` / `mlx-video` 的
+  `uninstall.sh` 用 `find ... -prune -o -exec rm -rf {} +` 清理，依赖 `-mindepth 1` 保护目录本身。
+  某些 `find` 实现（toybox/busybox 这类精简版）在带 `-prune` 时**忽略 `-mindepth`**，
+  会把组件目录本身交给 `-exec rm -rf`，连 8 个生命周期脚本一起删除。
+  已改为不依赖 `find` 的显式 glob 循环 + `case` 白名单，只删白名单之外的条目
+- **同一个 `uninstall.sh` 里的数组陷阱**：`unset 'exclude_args[${#exclude_args[@]}-1]'` 在 Bash 中
+  并不删除末元素，而是把数组内容破坏成含空元素（残留 `-name '' -o`），使排除表达式整体失效。
+  旧写法已随上面一起移除
+- `components/open-webui/uninstall.sh` 的卸载确认语句硬编码英文（"Are you sure you want to uninstall ..."），
+  已改走消息层 `UNINSTALL_CONFIRM` / `UNINSTALL_CONFIRM_DELETE` / `UNINSTALL_CONFIRM_KEEP`
+- **P0：`restart` 命令 100% 不可用**：主入口此前先做 `restart.sh` 存在性校验（无任何组件提供该文件），
+  而 restart 分支本身已实现内联 stop+start。现对 `restart` 豁免存在性校验
+- **P0：`diagnose all` / `uninstall all` 路径拼接错误**：两分支未处理 `all`，
+  路径被拼成 `components/all/*.sh`。已补 `all` 分支
+- **P0：批量操作不聚合失败**：`install/start/stop/restart/update/uninstall/diagnose all`
+  统一走新的 `run_batch()`——逐个检查返回码，缺少对应脚本的组件计为失败并告警，
+  末尾汇总「N 个组件失败」并据此处非零退出码（此前失败后继续且退出码无意义）
+- **P0：`model` 组件已实现但未注册**：已加入 `SUPPORTED_COMPONENTS`（含端口映射与
+  `DESC_MODEL` 描述词条），`install model` 等命令现在可达；三份 README 组件表同步补充
+- **P1：`status` 无参被参数校验拦截**：`main()` 现对 `status` 豁免组件名参数，
+  无参时列出全部组件（与帮助文本 `status [component]` 一致）
 - **阻断级**：`components/mlx/status.sh` 的 `case` 语句误以 `fi` 结尾（应为 `esac`），导致该文件无法被解析，`ai-studio.sh status mlx` 直接报语法错误
 - **阻断级**：全部 61 个 `.sh` 脚本缺少可执行位，主入口以直接路径调用组件脚本，导致所有组件操作 `Permission denied`
 - `components/mlx/metadata.sh` 未定义 `COMPONENT_VENV_DIR`，而 mlx 的 7 个生命周期脚本共 26 处引用它，在 `set -u` 下触发 `unbound variable`
@@ -28,9 +49,36 @@
 - **中文标签列错位**：Bash 的 `printf "%-25s"` 按**字节**补齐，中文字符占 3 字节却只占 2 个显示列，
   导致 `ai-studio.sh env status` 的中文标签列宽参差不齐（实测 21 / 23 / 21 列）。
   新增 `pad_display`（`lib/common.sh`）按显示宽度补齐，中文与英文均稳定对齐到 25 列
+- **P1：`is_component_installed` 语义错误**：此前以「install.sh 是否存在」判定（实际反映
+  「已实现」而非「已安装」）。现改为检查安装标记文件 `components/<name>/.installed`
+  （`install.sh` 成功时写入、幂等分支补写、`uninstall.sh` 删除，标记不入库）
+- **P2：端口双真源**：`get_component_port()` 改为文本解析 `metadata.sh` 的 `COMPONENT_PORT`
+  （同一进程不能 source 多份 metadata.sh，`readonly` 会冲突），端口唯一真源收敛到 metadata.sh
+- **P2：错误提示指向零引用配置**：`START_PORT_HINT` 词条改指真实生效的 `config/global.conf`
+- **潜伏缺陷**：`lib/common.sh` 的 `wait_for_port` 使用 `((elapsed++))`，计数器为 0 时返回 1，
+  在 `set -e` 调用方下会静默中断；`components/model/install.sh` 的 3 处 `|| ((download_failed++))`
+  同型。均已改为 `x=$((x + 1))`
+- `comfyui` 的 `COMPONENT_REPO` 从 `comfyanonymous/ComfyUI`（重定向）更新为官方现址
+  `Comfy-Org/ComfyUI`；sillytavern / comfyui 的 `COMPONENT_DATA_DIR` 修正为 `app/` 内真实路径
+- `status.sh` 的安装提示行补 `echo -e`（颜色转义此前被原样打印为字面量 `\033[36m`）
 
 ### Added
 
+- **组件补全（官方文档校准）**：`sillytavern` 与 `comfyui` 补齐全部 7 个生命周期脚本
+  （install/start/stop/status/update/diagnose/uninstall），按各自官方文档实现——
+  SillyTavern：clone release 分支 + `npm install --no-audit --no-fund` + `node server.js`（端口读 app/config.yaml，偏移量不适用时提示）；
+  ComfyUI：clone + venv + Apple Silicon 走 PyTorch nightly MPS 源 + `requirements.txt` + `python main.py --port`
+- 上游源码统一克隆到 `components/<name>/app/` 子目录，避免与本目录生命周期脚本同名冲突
+  （SillyTavern 上游自带 start.sh）；`.gitignore` 新增 `components/<name>/app/`
+- **组件补全（批次 2，官方文档校准）**：`browser-use` 与 `mlx-video` 补齐全部 7 个生命周期脚本——
+  `browser-use`（Python 库类型，无端口）：venv + `pip install browser-use` + `playwright install chromium --no-shell`
+  （`--with-deps` 仅 Linux，macOS 刻意不用）；`mlx-video`：venv + `pip install git+https://github.com/Blaizzy/mlx-video.git`，
+  非 Apple Silicon 直接拒绝安装
+- 两个库类型组件遵循 `mlx` 的语义：`start` = 校验环境 + 打印用法（`exit 0`），`stop` = 说明无常驻进程（`exit 0`），
+  保证 `start all` / `stop all` 不因它们变成红色
+- `browser-use` 的 `COMPONENT_PORT` 由虚构的 `7788` 改为空串（库组件不监听端口）
+- 卸载通用词条：`UNINSTALL_CONFIRM` / `UNINSTALL_CONFIRM_DELETE` / `UNINSTALL_CONFIRM_KEEP`，
+  并复用既有 `UNINSTALL_KEEP_DATA` / `UNINSTALL_DELETE_DATA` / `UNINSTALL_DATA_PRESERVED`
 - **UI 消息层 `lib/lang.sh`（i18n）**：新增 `msg KEY` / `msgf KEY arg...` 接口与中英两套词条表，
   语言优先级为 `--lang <code>` > 环境变量 `AI_STUDIO_LANG` > `config/global.conf` 的 `LANG` > 默认 `zh`
 - **`lang` 子命令**：`lang`（查看）/ `lang list`（列出支持的语言）/ `lang set zh|en`（切换并持久化）
@@ -99,8 +147,21 @@
   `env/install-git-lfs.sh` 共 12 处 echo 行。词典 `lib/lang.sh` 词条中的 `•` 属 UI 层内容，保留
 - `.github/PULL_REQUEST_TEMPLATE.md` 自检清单新增「无 emoji」与「遵循语言策略」勾选项
 
+### Removed
+
+- **删除三份零引用配置** `config/ports.conf` / `config/ai-studio.conf` / `config/default.conf`
+  （无任何代码读取，且端口值互相冲突）。运行时配置以自动生成的 `config/global.conf` 为准，
+  端口以 `components/<name>/metadata.sh` 的 `COMPONENT_PORT` 为唯一真源
+
 ### Security
 
+- **远程安装脚本不再无校验管道执行**（4 处：Homebrew ×2、Ollama ×2）。
+  新增 `run_remote_installer()`（lib/common.sh）：下载到临时文件 → 打印 SHA256 供核对 → 执行 → 清理
+- **`open-webui/install.sh` 的无保护 `rm -rf` 加路径守卫**：仅当 `COMPONENT_DIR` 精确等于
+  `${AI_STUDIO_ROOT}/components/${COMPONENT_NAME}` 时才允许清理，否则报错退出
+- **`git clone` 加固**：仓库地址仅允许 `https://` 开头（否则拒绝），并加 `--depth 1` 浅克隆
+- **`brew install` 两处未加引号展开**改为 `read -a` 数组安全展开，
+  避免依赖名中的空格/通配符被意外拆分或 glob
 - CI 增加可执行位与语法门禁，避免「脚本带语法错误 / 无执行权限」被合入主干
 
 ---

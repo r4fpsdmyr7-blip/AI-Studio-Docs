@@ -125,18 +125,20 @@ logs/                 运行日志（*.log 已 gitignore）
   **不要**基于它们写新逻辑，**不要**以为调用它们能工作，**不要**为其接入消息层（迁移后仍无法运行）。
 - **`env/` 下 7 个脚本**：从未被主程序调用。主入口走的是 `lib/env-install.sh` 的内联函数。
 
-### 不要改这三份配置文件并指望生效
+### 配置与端口的唯一真源
 
-- `config/ports.conf`、`config/ai-studio.conf`、`config/default.conf` —— **全部没有任何代码读取**。
-  真实生效的是运行时由 `lib/config.sh:init_config()` 自动生成的 **`config/global.conf`**（仅 4 个键）。
-- 三份文件之间的端口值还互相冲突（Browser Use `7788` vs `9222` 等）。改端口请改 `registry.sh`。
+- 生效的运行时配置是 `lib/config.sh:init_config()` 自动生成的 **`config/global.conf`**（仅 4 个键，不入库）。
+  曾经的 `ports.conf` / `ai-studio.conf` / `default.conf` 三份零引用配置已删除（见 CHANGELOG Removed）。
+- **端口的唯一真源是 `components/<name>/metadata.sh` 的 `COMPONENT_PORT` 字段**；
+  `registry.sh:get_component_port()` 以文本方式解析它（切勿在 registry 里再写一份端口值）。
 
 ### 已知不可用的功能（不要试图「修好」再报告为 regression）
 
-- `restart` 命令：主入口校验 `restart.sh` 是否存在，但无组件提供该文件
-- `install/start/stop/update all`：9 个注册组件中 6 个只有 `metadata.sh`，`qwen3` 无目录
-- `diagnose all` / `uninstall all`：路径被拼成 `components/all/*.sh`
-- `model` 组件：已完整实现但未注册进 `SUPPORTED_COMPONENTS`
+- `install/start/stop/update/restart/uninstall/diagnose all`：10 个注册组件中 2 个只有
+  `metadata.sh`（`continue-dev` / `fazm`），`qwen3` 无目录。批量循环会把这些组件计为失败并汇总退出码，
+  属预期行为（待组件补全后自然消除）。
+- `list` 的安装标记 `[I]` 由 `components/<name>/.installed` 判定：`install.sh` 成功时写入，
+  `uninstall.sh` 删除（标记文件不入库）。**不要**把它改回「检查 install.sh 是否存在」。
 
 修复这些属于已排期工作，详见 `CHANGELOG.md` 的 Known Issues。
 

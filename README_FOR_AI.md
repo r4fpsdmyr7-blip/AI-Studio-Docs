@@ -84,14 +84,15 @@ logs/                     运行日志
 ### 4.3 `components/registry.sh`（唯一元数据来源）
 
 ```bash
-readonly SUPPORTED_COMPONENTS="open-webui sillytavern continue-dev fazm browser-use mlx comfyui mlx-video qwen3"
+readonly SUPPORTED_COMPONENTS="open-webui sillytavern continue-dev fazm browser-use mlx comfyui mlx-video qwen3 model"
 ```
 
 必须提供的函数：`get_component_port` `get_component_description` `get_component_dir`
 `is_valid_component` `get_all_components` `is_component_installed` `is_component_running` `discover_components`。
 
-默认端口：`open-webui 3000`、`sillytavern 8000`、`browser-use 7788`、`comfyui 8188`、`qwen3 11434`；
-`continue-dev / fazm / mlx / mlx-video` 无独立端口，返回空串。
+默认端口：`open-webui 3000`、`sillytavern 8000`、`comfyui 8188`、`qwen3 11434`；
+`continue-dev / fazm / browser-use / mlx / mlx-video / model` 无独立端口，返回空串
+（`browser-use` 与 `mlx-video` 是 Python 库，不监听端口）。
 
 ### 4.4 组件契约：`components/<name>/`
 
@@ -145,10 +146,10 @@ source "$COMPONENT_DIR/metadata.sh"
 ## 6. 配置真相（容易搞错，务必按此实现）
 
 - **真正生效的配置**：运行时由 `lib/config.sh:init_config()` 自动生成的 `config/global.conf`，
-  仅含 4 个键：`AUTO_OPEN_BROWSER="true"`、`DEFAULT_PORT_OFFSET="0"`、`LOG_LEVEL="info"`、`MAX_DIAGNOSE_DEPTH="1"`
-- **仓库内 `config/ports.conf`、`config/ai-studio.conf`、`config/default.conf` 三份均无任何代码读取**，
-  且端口值互相冲突（如 Browser Use `7788` vs `9222`）。**不要**按它们实现读取逻辑
-- 改端口的正确位置：`registry.sh:get_component_port()`
+  仅含 4 个键：`AUTO_OPEN_BROWSER="true"`、`DEFAULT_PORT_OFFSET="0"`、`LOG_LEVEL="info"`、`MAX_DIAGNOSE_DEPTH="1"`（不入库）
+- 曾经的 `config/ports.conf` / `ai-studio.conf` / `default.conf` 三份零引用配置**已删除**，不要重建
+- **端口的唯一真源**是 `components/<name>/metadata.sh` 的 `COMPONENT_PORT`；
+  `get_component_port()` 以文本解析方式读取它（同一进程不能 source 多份 metadata.sh——`readonly` 会冲突）
 
 ## 7. 实现状态（生成时务必区分）
 
@@ -156,24 +157,30 @@ source "$COMPONENT_DIR/metadata.sh"
 | :--- | :--- | :--- |
 | `open-webui` | 已实现 | 8 个脚本齐全 |
 | `mlx` | 已实现 | 8 个脚本齐全 |
-| `model` | 已实现，但**未注册** | 8 个脚本齐全，却不在 `SUPPORTED_COMPONENTS` 中，命令行无法访问 |
-| `sillytavern` / `continue-dev` / `fazm` / `browser-use` / `comfyui` / `mlx-video` | 仅声明 | **只有 `metadata.sh`**，无任何生命周期脚本 |
-| `qwen3` | 未创建 | 在 `SUPPORTED_COMPONENTS` 中声明，但目录不存在 |
+| `model` | 已实现 | 8 个脚本齐全，已注册进 `SUPPORTED_COMPONENTS` |
+| `sillytavern` | 已实现 | 8 个脚本齐全（node 类型，源码克隆到 `app/`） |
+| `comfyui` | 已实现 | 8 个脚本齐全（venv + Apple Silicon nightly torch） |
+| `browser-use` | 已实现 | 8 个脚本齐全（库类型：venv + `pip install browser-use` + `playwright install chromium`） |
+| `mlx-video` | 已实现 | 8 个脚本齐全（库类型：venv + `pip install git+.../Blaizzy/mlx-video`，仅 Apple Silicon） |
+| `continue-dev` / `fazm` | 仅声明 | **只有 `metadata.sh`**，无任何生命周期脚本（已排期补全） |
+| `qwen3` | 未创建 | 在 `SUPPORTED_COMPONENTS` 中声明，但目录不存在（已排期补全） |
 
-> 重建时建议：**先完整实现 3 个已实现组件**，其余组件从 `SUPPORTED_COMPONENTS` 中移除
-> 或补齐全套脚本，**不要**保留「已声明但无实现」的状态——那会让 `install all` 大面积失败。
+> 重建时建议：**先完整实现 3 个已实现组件**，再逐个补齐其余组件的全套脚本，
+> **不要**保留「已声明但无实现」的状态——批量操作（`install all` 等）会把这类组件计为失败。
 
 ## 8. 已知缺陷（不要复现）
 
 | 缺陷 | 根因 |
 | :--- | :--- |
-| `restart` 100% 失败 | 主入口校验 `restart.sh` 是否存在，但无组件提供该文件 |
-| `install/start/stop/update all` 大面积失败 | 派发时直接拼接 `components/<name>/install.sh`，而多数组件只有 `metadata.sh` |
-| `diagnose all` / `uninstall all` 失败 | 未处理 `all`，路径被拼成 `components/all/*.sh` |
-| 批量操作不汇总失败 | 循环中不检查返回码，也不统计失败数 |
-| `status`（无参数）被拦截 | `main()` 统一要求至少一个参数，导致「列出全部」分支不可达 |
-| `is_component_installed` 语义错误 | 以「是否存在 install.sh」判定，实际反映的是「是否已实现」而非「是否已安装」 |
-| 孤儿代码 | `lib/component.sh`、`lib/network.sh`、`lib/logger.sh`、`commands/`（9 文件）从未被 source/调用，且引用未定义符号 |
+| ~~`restart` 100% 失败~~（已修复） | 主入口现对 `restart` 豁免脚本存在性校验，内联执行 stop+start |
+| ~~批量操作不汇总失败~~（已修复） | `run_batch()` 逐个检查返回码，缺脚本组件计为失败并汇总退出码 |
+| ~~`diagnose all` / `uninstall all` 失败~~（已修复） | 两个分支已补 `all` 处理 |
+| ~~`status`（无参数）被拦截~~（已修复） | `main()` 对 `status` 豁免参数校验，无参时列出全部组件 |
+| ~~`model` 未注册~~（已修复） | 已加入 `SUPPORTED_COMPONENTS` |
+| `install/start/stop/update all` 对半成品组件失败 | `continue-dev` / `fazm` 只有 `metadata.sh`、`qwen3` 无目录（已排期补全；批量循环会计为失败并汇总） |
+| ~~`is_component_installed` 语义错误~~（已修复） | 现以 `components/<name>/.installed` 标记文件判定 |
+| ~~卸载时 `find -prune -exec rm -rf` 会删掉整个组件目录~~（已修复） | 某些 `find` 实现（toybox/busybox）在带 `-prune` 时忽略 `-mindepth`，把目录本身交给 exec。已改为显式 glob 循环 |
+| 孤儿代码 | `lib/component.sh`、`lib/network.sh`、`lib/logger.sh`、`commands/`（9 文件）从未被 source/调用，且引用未定义符号；头部均已标 DEPRECATED |
 | `env/` 未被主程序调用 | 主入口走 `lib/env-install.sh` 的内联函数 |
 | 部分 `echo` 缺 `-e` | 颜色转义序列被原样打印（如字面量 `\033[36m`） |
 

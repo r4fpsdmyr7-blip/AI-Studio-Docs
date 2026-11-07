@@ -38,6 +38,7 @@ AI Studio 是一个基于 Bash 脚本的综合工具集，旨在简化 macOS 上
 | **ComfyUI** | Node-based image generation UI (SDXL/FLUX support) / 节点式图像生成 UI (支持 SDXL/FLUX) | `8188` |
 | **MLX-Video** | Efficient video generation tool powered by MLX / 基于 MLX 的高效视频生成工具 | N/A |
 | **QWen3 Uncensored**| Uncensored QWen3 LLM running via Ollama / 通过 Ollama 运行的无审查版 QWen3 模型 | `11434` |
+| **Model** | Centralized MLX model repository manager / 集中式 MLX 模型仓库管理器 | N/A |
 
 ---
 

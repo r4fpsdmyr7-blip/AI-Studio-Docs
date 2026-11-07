@@ -45,6 +45,7 @@ AI Studio is a comprehensive, bash-based toolkit designed to simplify the deploy
 | **ComfyUI** | Powerful node-based image generation UI (Full SDXL/FLUX support). | `8188` |
 | **MLX-Video** | Efficient local video generation tool powered by the MLX framework. | N/A |
 | **QWen3 Uncensored**| Uncensored QWen3 Large Language Model (runs via Ollama). | `11434` |
+| **Model** | Centralized MLX model repository manager (LLMs, SD, FLUX). | N/A |
 
 ---
 

@@ -45,6 +45,7 @@ AI Studio 是一个专为 macOS（特别是 Apple Silicon）设计的自动化�
 | **ComfyUI** | 强大的节点式图像生成 UI (完美支持 SDXL/FLUX) | `8188` |
 | **MLX-Video** | 基于 MLX 框架的高效本地视频生成工具 | N/A |
 | **QWen3 Uncensored** | 无审查版 QWen3 大语言模型 (通过 Ollama 运行) | `11434` |
+| **Model** | 集中式 MLX 模型仓库管理器（LLM、SD、FLUX） | N/A |
 
 ---
 
@@ -301,8 +302,7 @@ ai-studio/
 │   └── └── uninstall.sh          # 卸载
 │
 ├── config/
-│   ├── ai-studio.conf            # 主配置文件
-│   └── ports.conf                # 端口分配表
+│   └── global.conf               # 运行时自动生成的用户配置（不入库）
 │
 └── logs/                         # 日志目录
     └── .gitkeep

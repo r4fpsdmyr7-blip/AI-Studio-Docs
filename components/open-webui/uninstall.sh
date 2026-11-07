@@ -80,11 +80,11 @@ confirm_uninstall() {
         return 0 # Skip confirmation in force mode
     fi
 
-    local warning_msg="Are you sure you want to uninstall ${COMPONENT_NAME}?"
+    local warning_msg="$(msgf UNINSTALL_CONFIRM "$COMPONENT_NAME")"
     if [[ "$KEEP_DATA" == false ]]; then
-        warning_msg="${warning_msg} ${COLOR_RED}THIS WILL DELETE ALL USER DATA AND MODELS!${COLOR_RESET}"
+        warning_msg="${warning_msg} ${COLOR_RED}$(msg UNINSTALL_CONFIRM_DELETE)${COLOR_RESET}"
     else
-        warning_msg="${warning_msg} ${COLOR_YELLOW}(User data will be preserved)${COLOR_RESET}"
+        warning_msg="${warning_msg} ${COLOR_YELLOW}$(msg UNINSTALL_CONFIRM_KEEP)${COLOR_RESET}"
     fi
 
     if ! confirm_action "$warning_msg" "N"; then
@@ -108,32 +108,41 @@ cleanup_files() {
         "metadata.sh"
     )
     
-    # Build find exclude arguments
-    local exclude_args=()
-    for file in "${keep_files[@]}"; do
-        exclude_args+=("-name" "$file" "-o")
-    done
+    # Entries to KEEP, in addition to the interface scripts above
+    local keep_names=("${keep_files[@]}")
     
     # If keeping data, also exclude the data directory
     if [[ "$KEEP_DATA" == true ]]; then
         # Remove trailing slash for consistent matching
         local data_dir_name="${COMPONENT_DATA_DIR%/}"
         data_dir_name="${data_dir_name#./}" # Remove leading ./ if present
-        exclude_args+=("-name" "$data_dir_name" "-o")
+        keep_names+=("$data_dir_name")
         log_info "$(msgf UNINSTALL_KEEP_DATA "$COMPONENT_DATA_DIR")"
     else
         log_warn "$(msgf UNINSTALL_DELETE_DATA "$COMPONENT_DATA_DIR")"
     fi
 
-    # Remove the last "-o" from the array
-    unset 'exclude_args[${#exclude_args[@]}-1]'
+    # Remove everything except the kept entries.
+    # Implemented as an explicit loop instead of `find -prune -exec rm -rf`:
+    # some find implementations (toybox/busybox) ignore -mindepth when -prune
+    # is present and hand the component directory itself to the exec, which
+    # would delete the whole directory including the scripts we must keep.
+    local entry name cleanup_failed=false
+    for entry in "$COMPONENT_DIR"/* "$COMPONENT_DIR"/.[!.]* "$COMPONENT_DIR"/..?*; do
+        [[ -e "$entry" ]] || continue
+        name="$(basename "$entry")"
+        case " ${keep_names[*]} " in
+            *" $name "*) continue ;;
+        esac
+        if ! rm -rf "$entry"; then
+            cleanup_failed=true
+        fi
+    done
 
-    # Execute find and delete everything EXCEPT the kept files/directories
-    # -mindepth 1 ensures we don't delete the component directory itself, just its contents
-    if find "$COMPONENT_DIR" -mindepth 1 -maxdepth 1 \( "${exclude_args[@]}" \) -prune -o -exec rm -rf {} +; then
-        log_success "$(msg UNINSTALL_REMOVED_OK)"
-    else
+    if [[ "$cleanup_failed" == true ]]; then
         log_error "$(msg UNINSTALL_CLEAN_FAILED)"
+    else
+        log_success "$(msg UNINSTALL_REMOVED_OK)"
     fi
 
     # Clean up component-specific log file
@@ -197,6 +206,9 @@ main() {
     echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
     echo "  $(msg UNINSTALL_HINT_LIST)"
     echo "  $(msg UNINSTALL_HINT_INSTALL_OTHER)"
+    echo ""
+    rm -f "${COMPONENT_DIR}/.installed"
+
     echo ""
     print_separator
     

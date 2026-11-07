@@ -91,29 +91,39 @@ cleanup_files() {
         "metadata.sh"
     )
     
-    # Build find exclude arguments
-    local exclude_args=()
-    for file in "${keep_files[@]}"; do
-        exclude_args+=("-name" "$file" "-o")
-    done
+    # Entries to KEEP, in addition to the interface scripts above
+    local keep_names=("${keep_files[@]}")
     
     # If keeping data, also exclude the virtual environment directory
     if [[ "$KEEP_DATA" == true ]]; then
         local venv_dir_name="${COMPONENT_VENV_DIR%/}"
-        exclude_args+=("-name" "$venv_dir_name" "-o")
+        keep_names+=("$venv_dir_name")
         log_info "$(msgf MLX_UNINSTALL_PRESERVE "$COMPONENT_VENV_DIR")"
     else
         log_warn "$(msgf MLX_UNINSTALL_DELETE "$COMPONENT_VENV_DIR")"
     fi
 
-    # Remove the last "-o" from the array
-    unset 'exclude_args[${#exclude_args[@]}-1]'
+    # Remove everything except the kept entries.
+    # Implemented as an explicit loop instead of `find -prune -exec rm -rf`:
+    # some find implementations (toybox/busybox) ignore -mindepth when -prune
+    # is present and hand the component directory itself to the exec, which
+    # would delete the whole directory including the scripts we must keep.
+    local entry name cleanup_failed=false
+    for entry in "$COMPONENT_DIR"/* "$COMPONENT_DIR"/.[!.]* "$COMPONENT_DIR"/..?*; do
+        [[ -e "$entry" ]] || continue
+        name="$(basename "$entry")"
+        case " ${keep_names[*]} " in
+            *" $name "*) continue ;;
+        esac
+        if ! rm -rf "$entry"; then
+            cleanup_failed=true
+        fi
+    done
 
-    # Execute find and delete everything EXCEPT the kept files/directories
-    if find "$COMPONENT_DIR" -mindepth 1 -maxdepth 1 \( "${exclude_args[@]}" \) -prune -o -exec rm -rf {} +; then
-        log_success "$(msg UNINSTALL_REMOVED_OK)"
-    else
+    if [[ "$cleanup_failed" == true ]]; then
         log_error "$(msg UNINSTALL_CLEAN_FAILED)"
+    else
+        log_success "$(msg UNINSTALL_REMOVED_OK)"
     fi
 
     # Clean up component-specific log file
@@ -172,6 +182,9 @@ main() {
     echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
     echo "  $(msg UNINSTALL_HINT_LIST)"
     echo "  $(msg UNINSTALL_HINT_INSTALL_OTHER)"
+    echo ""
+    rm -f "${COMPONENT_DIR}/.installed"
+
     echo ""
     print_separator
     

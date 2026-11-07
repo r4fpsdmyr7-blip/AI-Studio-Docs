@@ -32,6 +32,7 @@ main() {
 
     # --- Step 1: Idempotency Check ---
     if [[ -d "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}" ]] && [[ -f "${COMPONENT_DIR}/${COMPONENT_VENV_DIR}/bin/activate" ]]; then
+        touch "${COMPONENT_DIR}/.installed"
         log_info "$(msgf INSTALL_ALREADY "$COMPONENT_NAME")"
         log_info "$(msgf INSTALL_SKIP_HINT "$COMPONENT_NAME")"
         echo ""
@@ -53,10 +54,23 @@ main() {
         # Clean directory if it exists but is not a git repo
         if [[ -n "$(ls -A "${COMPONENT_DIR}" 2>/dev/null | grep -v 'install.sh\|metadata.sh\|start.sh\|stop.sh\|status.sh\|update.sh\|diagnose.sh\|uninstall.sh')" ]]; then
             log_warn "$(msg INSTALL_DIR_NOT_GIT)"
+            # Guard: only ever clean the exact expected component directory
+            if [[ -z "${COMPONENT_DIR}" || "${COMPONENT_DIR}" != "${AI_STUDIO_ROOT}/components/${COMPONENT_NAME}" ]]; then
+                log_error "$(msgf INSTALL_GUARD_BAD_DIR "${COMPONENT_DIR}")"
+                exit 1
+            fi
             find "${COMPONENT_DIR}" -mindepth 1 -maxdepth 1 ! -name '*.sh' -exec rm -rf {} +
         fi
-        
-        git clone --branch "$COMPONENT_BRANCH" "$COMPONENT_REPO" "${COMPONENT_DIR}/.tmp_clone"
+
+        # Only allow https:// repository URLs; shallow clone to save bandwidth
+        case "$COMPONENT_REPO" in
+            https://*) ;;
+            *)
+                log_error "$(msgf INSTALL_REPO_INVALID "$COMPONENT_REPO")"
+                exit 1
+                ;;
+        esac
+        git clone --depth 1 --branch "$COMPONENT_BRANCH" "$COMPONENT_REPO" "${COMPONENT_DIR}/.tmp_clone"
         # Move contents to root, preserving standard scripts
         shopt -s dotglob nullglob
         mv "${COMPONENT_DIR}/.tmp_clone"/* "${COMPONENT_DIR}/"
@@ -113,6 +127,7 @@ main() {
     log_success "$(msgf INSTALL_DATA_DIR_READY "$COMPONENT_DATA_DIR")"
 
     # --- Completion ---
+    touch "${COMPONENT_DIR}/.installed"
     echo ""
     print_separator
     log_success "$(msgf INSTALL_SUCCESS_COMPONENT "$COMPONENT_NAME")"

@@ -115,17 +115,17 @@ main() {
 
     # 1. Qwen3 35B Uncensored (Aggressive variant)
     # Note: Replace repo_id with the actual mlx-community converted repository name
-    download_mlx_model "mlx-community/Qwen3-35B-A3B-Uncensored-HauHauCS-Aggressive" "qwen3-35b-uncensored" || ((download_failed++))
+    download_mlx_model "mlx-community/Qwen3-35B-A3B-Uncensored-HauHauCS-Aggressive" "qwen3-35b-uncensored" || download_failed=$((download_failed + 1))
     
     echo ""
     
     # 2. Stable Diffusion (e.g., SD 3.5 Large or SDXL)
-    download_mlx_model "mlx-community/stable-diffusion-3.5-large" "stable-diffusion-3.5-large" || ((download_failed++))
+    download_mlx_model "mlx-community/stable-diffusion-3.5-large" "stable-diffusion-3.5-large" || download_failed=$((download_failed + 1))
     
     echo ""
     
     # 3. FLUX.1 (Dev or Schnell)
-    download_mlx_model "mlx-community/FLUX.1-dev" "flux.1-dev" || ((download_failed++))
+    download_mlx_model "mlx-community/FLUX.1-dev" "flux.1-dev" || download_failed=$((download_failed + 1))
 
     echo ""
     print_separator
@@ -135,6 +135,7 @@ main() {
         log_info "$(msg MODEL_INSTALL_RETRY_HINT)"
         exit 1
     else
+        touch "${COMPONENT_DIR}/.installed"
         log_success "$(msg MODEL_INSTALL_ALL_OK)"
         echo ""
         echo -e "${COLOR_CYAN}$(msg MODEL_INSTALL_INTEGRATION)${COLOR_RESET}"

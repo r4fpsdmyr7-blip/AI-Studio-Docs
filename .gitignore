@@ -27,9 +27,11 @@ logs/diagnosis_report.tmp
 # ----------------------------------------------------------------------------
 components/*/.venv/
 components/*/data/
+components/*/app/
 components/*/.tmp_clone/
 components/*/node_modules/
 components/*/models/
+components/*/.installed
 
 # ----------------------------------------------------------------------------
 # 3. Python

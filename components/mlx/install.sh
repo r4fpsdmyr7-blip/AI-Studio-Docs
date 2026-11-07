@@ -42,6 +42,7 @@ main() {
     local venv_python="${COMPONENT_DIR}/${COMPONENT_VENV_DIR}/bin/python"
     if [[ -x "$venv_python" ]]; then
         if "$venv_python" -c "import mlx" >/dev/null 2>&1; then
+            touch "${COMPONENT_DIR}/.installed"
             log_info "$(msgf MLX_INSTALL_ALREADY_OK "$COMPONENT_NAME")"
             log_info "$(msgf INSTALL_SKIP_HINT "$COMPONENT_NAME")"
             echo ""
@@ -118,6 +119,7 @@ main() {
     log_info "$(msgf MLX_CACHE_DIR_READY "$COMPONENT_DATA_DIR")"
 
     # --- Completion ---
+    touch "${COMPONENT_DIR}/.installed"
     echo ""
     print_separator
     log_success "$(msgf INSTALL_SUCCESS_COMPONENT "$COMPONENT_NAME")"

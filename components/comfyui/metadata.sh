@@ -24,7 +24,7 @@ readonly COMPONENT_TYPE="python" # Deployment type: python, node, docker, binary
 readonly COMPONENT_PORT="8188"
 
 # 3. Source & Versioning
-readonly COMPONENT_REPO="https://github.com/comfyanonymous/ComfyUI.git"
+readonly COMPONENT_REPO="https://github.com/Comfy-Org/ComfyUI.git"
 # ComfyUI development is highly active; 'master' is the recommended stable branch
 readonly COMPONENT_BRANCH="master" 
 
@@ -37,7 +37,7 @@ readonly COMPONENT_REQUIRED_DEPS="python3 git wget curl cmake"
 readonly COMPONENT_VENV_DIR=".venv"
 # ComfyUI stores large model weights (.safetensors, .ckpt) in the 'models' directory.
 # This is the most critical data to preserve during updates or uninstalls.
-readonly COMPONENT_DATA_DIR="./models"
+readonly COMPONENT_DATA_DIR="./app/models"
 readonly COMPONENT_LOG_FILE="${AI_STUDIO_ROOT:-.}/logs/comfyui.log"
 
 # 6. Update Strategy

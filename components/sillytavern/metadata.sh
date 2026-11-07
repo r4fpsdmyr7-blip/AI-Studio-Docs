@@ -34,7 +34,7 @@ readonly COMPONENT_REQUIRED_DEPS="node npm git"
 # 5. Runtime Configuration Paths (Relative to component directory)
 # SillyTavern stores user data (characters, worlds, settings, backups) in the 'data' directory (v1.10+)
 # and legacy files in 'public'. We point to the modern centralized data directory.
-readonly COMPONENT_DATA_DIR="./data"
+readonly COMPONENT_DATA_DIR="./app/data"
 readonly COMPONENT_LOG_FILE="${AI_STUDIO_ROOT:-.}/logs/sillytavern.log"
 
 # 6. Update Strategy

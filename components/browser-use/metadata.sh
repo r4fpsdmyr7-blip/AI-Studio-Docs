@@ -21,10 +21,10 @@ readonly COMPONENT_TYPE="python" # Deployment type: python, node, docker, binary
 
 # 2. Network Configuration
 # The default port this service will attempt to bind to for its API/Web interface.
-readonly COMPONENT_PORT="7788"
+readonly COMPONENT_PORT="" # browser-use is a Python library; no standalone port
 
 # 3. Source & Versioning
-readonly COMPONENT_REPO="https://github.com/browser-use/browser-use.git" # Placeholder/Official repo
+readonly COMPONENT_REPO="https://github.com/browser-use/browser-use.git"
 readonly COMPONENT_BRANCH="main" # Stable branch to track
 
 # 4. System & Environment Dependencies

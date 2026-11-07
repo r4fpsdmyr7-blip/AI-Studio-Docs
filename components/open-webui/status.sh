@@ -36,7 +36,7 @@ main() {
         echo -e "  [${COLOR_RED}$(msg STATUS_NOT_INSTALLED_TAG)${COLOR_RESET}]"
         echo ""
         echo "  $(msg STATUS_NOT_INSTALLED_DESC)"
-        echo "  $(msgf STATUS_HINT_INSTALL "${COLOR_CYAN}./ai-studio.sh install ${COMPONENT_NAME}${COLOR_RESET}")"
+        echo -e "  $(msgf STATUS_HINT_INSTALL "${COLOR_CYAN}./ai-studio.sh install ${COMPONENT_NAME}${COLOR_RESET}")"
         echo ""
         print_separator
         exit 1

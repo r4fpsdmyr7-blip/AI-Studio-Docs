@@ -180,6 +180,9 @@ main() {
     echo -e "${COLOR_CYAN}$(msg NEXT_STEPS):${COLOR_RESET}"
     echo "  $(msg UNINSTALL_HINT_LIST)"
     echo ""
+    rm -f "${COMPONENT_DIR}/.installed"
+
+    echo ""
     print_separator
     
     exit 0
